@@ -1,0 +1,38 @@
+scope,category,activity,unit,emission_factor,cost_per_unit_inr
+Scope 1,,Diesel,liters,0.00268,90
+Scope 1,,Petrol,liters,0.00231,100
+Scope 1,,CNG,kg,0.0019,80
+Scope 1,,LPG,kg,0.0021,75
+Scope 2,,Electricity (India),kWh,0.00082,8
+Scope 2,,Steam Purchased,kg,0.0007,5
+Scope 2,,Chilled Water,kg,0.0005,6
+Scope 3,"1. Purchased Goods and Services",Plastic packaging,kg,0.0018,50
+Scope 3,"1. Purchased Goods and Services",Paper supply,kg,0.0012,40
+Scope 3,"2. Capital Goods",Industrial machinery,kg,0.0025,500
+Scope 3,"2. Capital Goods",Office furniture,kg,0.0019,300
+Scope 3,"3. Fuel- and Energy-Related Activities",Transmission losses,kWh,0.0003,0
+Scope 3,"3. Fuel- and Energy-Related Activities",Fuel extraction and production,liters,0.0008,0
+Scope 3,"4. Upstream Transportation and Distribution",Air freight,ton-km,0.0006,12
+Scope 3,"4. Upstream Transportation and Distribution",Truck transport,ton-km,0.0005,5
+Scope 3,"5. Waste Generated in Operations",General waste,kg,0.0009,2
+Scope 3,"5. Waste Generated in Operations",E-waste,kg,0.0016,10
+Scope 3,"6. Business Travel",Flights,passenger-km,0.00015,0
+Scope 3,"6. Business Travel",Hotel stay,night,0.0004,2000
+Scope 3,"7. Employee Commuting",Bus,passenger-km,0.00009,0
+Scope 3,"7. Employee Commuting",Car,passenger-km,0.00022,0
+Scope 3,"8. Upstream Leased Assets",Rented warehouse,sq ft,0.0011,100
+Scope 3,"8. Upstream Leased Assets",Leased office space,sq ft,0.0013,150
+Scope 3,"9. Downstream Transportation and Distribution",Marine shipping,ton-km,0.0004,0
+Scope 3,"9. Downstream Transportation and Distribution",Rail transport,ton-km,0.0003,0
+Scope 3,"10. Processing of Sold Products",Chemical treatment,kg,0.0023,20
+Scope 3,"10. Processing of Sold Products",Assembly operations,kg,0.0017,15
+Scope 3,"11. Use of Sold Products",Consumer electronics use,kWh,0.00095,8
+Scope 3,"11. Use of Sold Products",Electric vehicle charging,kWh,0.00088,9
+Scope 3,"12. End-of-Life Treatment of Sold Products",Landfilling,kg,0.0013,5
+Scope 3,"12. End-of-Life Treatment of Sold Products",Recycling,kg,0.0009,3
+Scope 3,"13. Downstream Leased Assets",Leased equipment,sq ft,0.0010,80
+Scope 3,"13. Downstream Leased Assets",Leased vehicles,km,0.0022,0
+Scope 3,"14. Franchises",Franchise electricity use,kWh,0.00085,8
+Scope 3,"14. Franchises",Franchise waste,kg,0.0010,2
+Scope 3,"15. Investments",Equity investments,INR,0.0042,0
+Scope 3,"15. Investments",Debt investments,INR,0.0038,0

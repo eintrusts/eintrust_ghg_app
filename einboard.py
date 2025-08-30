@@ -6,8 +6,8 @@ from datetime import datetime
 # --- Page Config ---
 st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout="wide")
 
-st.title("🌱 EinTrust GHG Emissions Estimator")
-st.markdown("Estimate Scope 1, 2, and 3 emissions using activity data and Indian emission factors.")
+st.title("Einboard")
+st.markdown("Estimate Scope 1, 2, and 3 emissions for net zero journey.")
 
 # --- Load Emission Factors ---
 try:

@@ -198,7 +198,7 @@ else:
             ctx = ClientContext(sharepoint_url).with_credentials(
                 UserCredential("mrkharat@eintrusts.com", "Eintrust@2025")
             )
-            file_name = f"{username}_emissions.xlsx"
+            file_name = f"{mrkharat@eintrusts.com}_emissions.xlsx"
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
                 pd.DataFrame(st.session_state.emissions_log).to_excel(writer, index=False)

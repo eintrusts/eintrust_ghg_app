@@ -194,7 +194,7 @@ else:
         # ---------------- SAVE TO SHAREPOINT ----------------
         try:
             sharepoint_url = "https://eintrusts.sharepoint.com/sites/EinTrust"
-            relative_url = "/sites/EinTrust/Shared Documents/einboard-data"
+            relative_url = "https://eintrusts.sharepoint.com/sites/EinTrust/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FEinTrust%2FShared%20Documents%2FGeneral%2Feinboard%5Fv2&newTargetListUrl=%2Fsites%2FEinTrust%2FShared%20Documents&viewpath=%2Fsites%2FEinTrust%2FShared%20Documents%2FForms%2FAllItems%2Easpx"
             ctx = ClientContext(sharepoint_url).with_credentials(
                 UserCredential("mrkharat@eintrusts.com", "Eintrust@2025")
             )

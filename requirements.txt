@@ -1,6 +1,6 @@
 streamlit
 pandas
 openpyxl
-streamlit-authenticator
+streamlit-authenticator==0.2.1
 Office365-REST-Python-Client
 plotly

@@ -193,10 +193,10 @@ else:
 
         # ---------------- SAVE TO SHAREPOINT ----------------
         try:
-            sharepoint_url = "https://yourtenant.sharepoint.com/sites/yoursite"
-            relative_url = "/sites/yoursite/Shared Documents/einboard-data"
+            sharepoint_url = "https://eintrusts.sharepoint.com/sites/EinTrust"
+            relative_url = "/sites/EinTrust/Shared Documents/einboard-data"
             ctx = ClientContext(sharepoint_url).with_credentials(
-                UserCredential("your_email@yourtenant.com", "your_password")
+                UserCredential("mrkharat@eintrusts.com", "Eintrust@2025")
             )
             file_name = f"{username}_emissions.xlsx"
             buffer = io.BytesIO()

@@ -7,7 +7,6 @@ import plotly.express as px
 # Page Config & CSS
 # ---------------------------
 st.set_page_config(page_title="EinTrust Sustainability Dashboard", page_icon="🌍", layout="wide")
-
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
@@ -47,12 +46,33 @@ def format_indian(n: float) -> str:
             res = s + "," + res
     return ("-" if x < 0 else "") + res
 
+months = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"]
+SCOPE_COLORS = {"Scope 1": "#81c784", "Scope 2": "#4db6ac", "Scope 3": "#aed581"}
+ENERGY_COLORS = {"Fossil": "#f39c12", "Renewable": "#2ecc71"}
+SDG_LIST = ["No Poverty","Zero Hunger","Good Health & Wellbeing","Quality Education","Gender Equality",
+            "Clean Water & Sanitation","Affordable & Clean Energy","Decent Work & Economic Growth","Industry, Innovation & Infrastructure",
+            "Reduced Inequalities","Sustainable Cities & Communities","Responsible Consumption & Production","Climate Action","Life Below Water",
+            "Life on Land","Peace, Justice & Strong Institutions","Partnerships for the Goals"]
+SDG_COLORS = ["#e5243b","#dda63a","#4c9f38","#c5192d","#ff3a21","#26bde2","#fcc30b","#a21942","#fd6925","#dd1367","#fd9d24",
+              "#bf8b2e","#3f7e44","#0a97d9","#56c02b","#00689d","#19486a"]
+
 # ---------------------------
-# Sidebar & Navigation
+# Session State Init
 # ---------------------------
 if "page" not in st.session_state:
     st.session_state.page = "Home"
+if "entries" not in st.session_state:
+    st.session_state.entries = pd.DataFrame(columns=["Scope","Activity","Sub-Activity","Specific Item","Quantity","Unit"])
+if "renewable_entries" not in st.session_state:
+    st.session_state.renewable_entries = pd.DataFrame(columns=["Source","Location","Month","Energy_kWh","CO2e_kg","Type"])
+if "water_entries" not in st.session_state:
+    st.session_state.water_entries = pd.DataFrame(columns=["Location","Month","Freshwater_kL","Recycled_kL","Rainwater_kL","STP_ETP_kL"])
+if "sdg_engagement" not in st.session_state:
+    st.session_state.sdg_engagement = {i:0 for i in range(1,18)}
 
+# ---------------------------
+# Sidebar
+# ---------------------------
 def sidebar_button(label):
     active = st.session_state.page == label
     if st.button(label, key=label):
@@ -95,40 +115,7 @@ with st.sidebar:
     sidebar_button("SDG")
 
 # ---------------------------
-# Initialize Data
-# ---------------------------
-if "entries" not in st.session_state:
-    st.session_state.entries = pd.DataFrame(columns=["Scope","Activity","Sub-Activity","Specific Item","Quantity","Unit"])
-if "renewable_entries" not in st.session_state:
-    st.session_state.renewable_entries = pd.DataFrame(columns=["Source","Location","Month","Energy_kWh","CO2e_kg","Type"])
-if "water_entries" not in st.session_state:
-    st.session_state.water_entries = pd.DataFrame(columns=["Location","Month","Freshwater_kL","Recycled_kL","Rainwater_kL","STP_ETP_kL"])
-if "sdg_engagement" not in st.session_state:
-    st.session_state.sdg_engagement = {i:0 for i in range(1,18)}
-
-# ---------------------------
-# Constants
-# ---------------------------
-scope_activities = {
-    "Scope 1": {"Stationary Combustion": {"Diesel Generator":"Generator running on diesel","Petrol Generator":"Generator running on petrol"},
-                "Mobile Combustion":{"Diesel Vehicle":"Truck/van running on diesel"}},
-    "Scope 2": {"Electricity Consumption":{"Grid Electricity":"Electricity from grid"}},
-    "Scope 3": {"Business Travel":{"Air Travel": None}}
-}
-units_dict = {"Diesel Generator": "Liters", "Petrol Generator": "Liters", "Diesel Vehicle": "Liters", "Grid Electricity": "kWh"}
-months = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"]
-SCOPE_COLORS = {"Scope 1": "#81c784", "Scope 2": "#4db6ac", "Scope 3": "#aed581"}
-ENERGY_COLORS = {"Fossil": "#f39c12", "Renewable": "#2ecc71"}
-SDG_LIST = ["No Poverty","Zero Hunger","Good Health & Wellbeing","Quality Education","Gender Equality",
-            "Clean Water & Sanitation","Affordable & Clean Energy","Decent Work & Economic Growth","Industry, Innovation & Infrastructure",
-            "Reduced Inequalities","Sustainable Cities & Communities","Responsible Consumption & Production","Climate Action","Life Below Water",
-            "Life on Land","Peace, Justice & Strong Institutions","Partnerships for the Goals"]
-SDG_COLORS = ["#e5243b","#dda63a","#4c9f38","#c5192d","#ff3a21","#26bde2","#fcc30b","#a21942","#fd6925","#dd1367","#fd9d24",
-              "#bf8b2e","#3f7e44","#0a97d9","#56c02b","#00689d","#19486a"]
-
-# ---------------------------
-# GHG & Energy & SDG Functions
-# (Same as previous working code)
+# GHG Dashboard
 # ---------------------------
 def calculate_kpis():
     df = st.session_state.entries
@@ -158,67 +145,98 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
         fig = px.bar(monthly_trend, x="Month", y="Quantity", color="Scope", barmode="stack", color_discrete_map=SCOPE_COLORS)
         st.plotly_chart(fig, use_container_width=True)
     
-    # Data Entry
     if include_data:
-        scope = st.selectbox("Select Scope", list(scope_activities.keys()))
-        activity = st.selectbox("Select Activity", list(scope_activities[scope].keys()))
-        sub_options = scope_activities[scope][activity]
-        sub_activity = st.selectbox("Select Sub-Activity", list(sub_options.keys()))
-        st.info(sub_options[sub_activity])
-        unit = units_dict.get(sub_activity, "Number")
-        quantity = st.number_input(f"Enter quantity ({unit})", min_value=0.0, format="%.2f")
-        if st.button("Add Entry"):
-            new_entry = {"Scope":scope,"Activity":activity,"Sub-Activity":sub_activity,"Specific Item":"",
-                         "Quantity":quantity,"Unit":unit}
+        scope_options = ["Scope 1","Scope 2","Scope 3"]
+        scope = st.selectbox("Select Scope", scope_options)
+        activity = st.text_input("Activity")
+        sub_activity = st.text_input("Sub-Activity")
+        unit = st.text_input("Unit", "tCO₂e")
+        quantity = st.number_input(f"Quantity ({unit})", min_value=0.0, format="%.2f")
+        if st.button("Add GHG Entry"):
+            new_entry = {"Scope":scope,"Activity":activity,"Sub-Activity":sub_activity,"Specific Item":"","Quantity":quantity,"Unit":unit}
             st.session_state.entries = pd.concat([st.session_state.entries, pd.DataFrame([new_entry])], ignore_index=True)
-            st.success("GHG entry added!")
+            st.success("Entry added!")
             st.experimental_rerun()
     
     if not st.session_state.entries.empty:
-        st.subheader("All entries")
-        display_df = st.session_state.entries.copy()
-        display_df["Quantity"] = display_df["Quantity"].apply(lambda x: format_indian(x))
-        st.dataframe(display_df)
-        csv = display_df.to_csv(index=False).encode('utf-8')
+        st.subheader("All GHG Entries")
+        df = st.session_state.entries.copy()
+        df["Quantity"] = df["Quantity"].apply(lambda x: format_indian(x))
+        st.dataframe(df)
+        csv = df.to_csv(index=False).encode('utf-8')
         st.download_button("Download CSV", csv, "ghg_entries.csv", "text/csv")
 
-# Energy dashboard (same as before)
-# SDG dashboard (same as before)
+# ---------------------------
+# Energy Dashboard
+# ---------------------------
+def render_energy_dashboard(include_input=True, show_chart=True):
+    st.subheader("Energy")
+    df_fossil = st.session_state.entries.copy() if not st.session_state.entries.empty else pd.DataFrame()
+    df_renew = st.session_state.renewable_entries.copy() if not st.session_state.renewable_entries.empty else pd.DataFrame()
+    
+    total_fossil = df_fossil["Quantity"].sum() if not df_fossil.empty else 0
+    total_renew = df_renew["Energy_kWh"].sum() if not df_renew.empty else 0
+    total_energy = total_fossil + total_renew
+    
+    c1,c2,c3 = st.columns(3)
+    for col,label,value,color in zip([c1,c2,c3],["Total Energy (kWh)","Fossil Energy (kWh)","Renewable Energy (kWh)"],
+                                    [total_energy,total_fossil,total_renew],
+                                    ["#ffffff",ENERGY_COLORS["Fossil"],ENERGY_COLORS["Renewable"]]):
+        col.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{color}'>{format_indian(value)}</div><div class='kpi-unit'>kWh</div><div class='kpi-label'>{label.lower()}</div></div>", unsafe_allow_html=True)
+    
+    if show_chart and (not df_fossil.empty or not df_renew.empty):
+        df_fossil["Month"] = pd.Categorical(df_fossil.get("Month",months[0]), categories=months, ordered=True)
+        df_renew["Month"] = pd.Categorical(df_renew.get("Month",months[0]), categories=months, ordered=True)
+        df_all = pd.concat([df_fossil.rename(columns={"Quantity":"Energy_kWh"}), df_renew], ignore_index=True)
+        monthly_trend = df_all.groupby(["Month","Type"])["Energy_kWh"].sum().reset_index()
+        st.subheader("Monthly Energy Consumption (kWh)")
+        fig = px.bar(monthly_trend, x="Month", y="Energy_kWh", color="Type", barmode="stack", color_discrete_map=ENERGY_COLORS)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    if include_input:
+        st.subheader("Add Renewable Energy Entry")
+        source = st.selectbox("Source", ["Solar","Wind","Biogas","Purchased Green Energy"])
+        location = st.text_input("Location")
+        annual_energy = st.number_input("Annual Energy (kWh)", min_value=0.0)
+        if st.button("Add Renewable Entry"):
+            monthly_energy = annual_energy/12
+            new_entries = []
+            for m in months:
+                new_entries.append({"Source":source,"Location":location,"Month":m,"Energy_kWh":monthly_energy,"CO2e_kg":0,"Type":"Renewable"})
+            st.session_state.renewable_entries = pd.concat([st.session_state.renewable_entries, pd.DataFrame(new_entries)], ignore_index=True)
+            st.success("Renewable energy entry added!")
+            st.experimental_rerun()
 
 # ---------------------------
 # Water Dashboard
 # ---------------------------
 def render_water_dashboard():
-    st.subheader("Water Dashboard")
+    st.subheader("Water")
+    # --- KPIs ---
+    df = st.session_state.water_entries
+    total_fresh = df["Freshwater_kL"].sum() if not df.empty else 0
+    total_recycled = df["Recycled_kL"].sum() if not df.empty else 0
+    total_rain = df["Rainwater_kL"].sum() if not df.empty else 0
+    c1,c2,c3 = st.columns(3)
+    for col,label,value in zip([c1,c2,c3],["Freshwater Used","Water Recycled","Rainwater Harvested"],[total_fresh,total_recycled,total_rain]):
+        col.markdown(f"<div class='kpi'><div class='kpi-value'>{format_indian(value)}</div><div class='kpi-unit'>kL</div><div class='kpi-label'>{label}</div></div>", unsafe_allow_html=True)
     
-    # --- Entry Form ---
-    st.markdown("### Add Water Data")
-    num_entries = st.number_input("Number of locations to add", min_value=1, max_value=10, value=1)
-    water_list = []
-    for i in range(int(num_entries)):
-        col1,col2,col3,col4,col5 = st.columns([2,2,2,2,2])
-        with col1:
-            location = st.text_input(f"Location {i+1}", key=f"loc{i}")
-        with col2:
-            freshwater = st.number_input(f"Freshwater kL {i+1}", min_value=0.0, key=f"fw{i}")
-        with col3:
-            recycled = st.number_input(f"Recycled Water kL {i+1}", min_value=0.0, key=f"rec{i}")
-        with col4:
-            rainwater = st.number_input(f"Rainwater Harvested kL {i+1}", min_value=0.0, key=f"rain{i}")
-        with col5:
-            stp_etp = st.number_input(f"STP/ETP Capacity kL {i+1}", min_value=0.0, key=f"stp{i}")
-        for m in months:
-            water_list.append({"Location":location,"Month":m,"Freshwater_kL":freshwater,"Recycled_kL":recycled,
-                               "Rainwater_kL":rainwater,"STP_ETP_kL":stp_etp})
-    if water_list and st.button("Add Water Entries"):
-        new_df = pd.DataFrame(water_list)
-        st.session_state.water_entries = pd.concat([st.session_state.water_entries,new_df], ignore_index=True)
-        st.success(f"{len(new_df)} water entries added!")
+    # --- Input ---
+    st.subheader("Add Water Entry")
+    location = st.text_input("Location")
+    freshwater = st.number_input("Freshwater used (kL)", min_value=0.0)
+    recycled = st.number_input("Water recycled (kL)", min_value=0.0)
+    rain = st.number_input("Rainwater harvested (kL)", min_value=0.0)
+    stp_capacity = st.number_input("STP/ETP Capacity (kL/day)", min_value=0.0)
+    if st.button("Add Water Entry"):
+        new_entry = {"Location":location,"Month":np.random.choice(months),"Freshwater_kL":freshwater,"Recycled_kL":recycled,
+                     "Rainwater_kL":rain,"STP_ETP_kL":stp_capacity}
+        st.session_state.water_entries = pd.concat([st.session_state.water_entries, pd.DataFrame([new_entry])], ignore_index=True)
+        st.success("Water entry added!")
         st.experimental_rerun()
     
-    # --- Monthly Trend Chart ---
-    if not st.session_state.water_entries.empty:
-        df = st.session_state.water_entries.copy()
+    # --- Chart & Table ---
+    if not df.empty:
         df["Month"] = pd.Categorical(df["Month"], categories=months, ordered=True)
         monthly_trend = df.groupby("Month")[["Freshwater_kL","Recycled_kL","Rainwater_kL"]].sum().reset_index()
         st.subheader("Monthly Water Usage (kL)")
@@ -226,11 +244,32 @@ def render_water_dashboard():
                      barmode="stack", labels={"value":"kL","variable":"Water Type"})
         st.plotly_chart(fig, use_container_width=True)
         
-        # Data Table
         st.subheader("All Water Entries")
         st.dataframe(df)
         csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button("Download Water CSV", csv, "water_entries.csv", "text/csv")
+        st.download_button("Download CSV", csv, "water_entries.csv", "text/csv")
+
+# ---------------------------
+# SDG Dashboard
+# ---------------------------
+def render_sdg_dashboard():
+    st.title("Sustainable Development Goals (SDGs)")
+    st.subheader("Company Engagement by SDG")
+    num_cols = 4
+    rows = (len(SDG_LIST)+num_cols-1)//num_cols
+    idx = 0
+    for r in range(rows):
+        cols = st.columns(num_cols)
+        for c in range(num_cols):
+            if idx >= len(SDG_LIST): break
+            sdg_name = SDG_LIST[idx]
+            sdg_color = SDG_COLORS[idx]
+            sdg_number = idx + 1
+            engagement = st.session_state.sdg_engagement.get(sdg_number,0)
+            engagement = cols[c].slider(f"Engagement % - SDG {sdg_number}", 0, 100, value=engagement, key=f"sdg{sdg_number}")
+            st.session_state.sdg_engagement[sdg_number] = engagement
+            cols[c].markdown(f"<div class='sdg-card' style='background-color:{sdg_color}'><div class='sdg-number'>SDG {sdg_number}</div><div class='sdg-name'>{sdg_name}</div><div class='sdg-percent'>Engagement: {engagement}%</div></div>", unsafe_allow_html=True)
+            idx +=1
 
 # ---------------------------
 # Render Pages
@@ -238,9 +277,8 @@ def render_water_dashboard():
 if st.session_state.page=="Home":
     st.title("EinTrust Sustainability Dashboard")
     render_ghg_dashboard(include_data=False, show_chart=False)
-    # Energy KPIs without input
-    st.subheader("Energy Overview")
     render_energy_dashboard(include_input=False, show_chart=False)
+    render_water_dashboard()
 elif st.session_state.page=="GHG":
     render_ghg_dashboard(include_data=True, show_chart=True)
 elif st.session_state.page=="Energy":
@@ -251,4 +289,4 @@ elif st.session_state.page=="SDG":
     render_sdg_dashboard()
 else:
     st.subheader(f"{st.session_state.page} section")
-    st.info("This section is under development. Please select other pages from sidebar.")
+    st.info("This section is under development.")

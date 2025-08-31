@@ -5,17 +5,47 @@ from datetime import datetime, date
 import io
 
 # ---------------------------
-# Config & Dark Theme CSS
+# Config & Dark Theme CSS with Professional Font & Modern KPIs
 # ---------------------------
 st.set_page_config(page_title="EinTrust Dashboard", page_icon="🌍", layout="wide")
 st.markdown("""
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+  html, body, [class*="css"] {
+      font-family: 'Roboto', sans-serif;
+  }
+
   .stApp { background-color: #0d1117; color: #e6edf3; }
-  .kpi { background: #12131a; padding: 14px; border-radius: 10px; }
-  .kpi-value { font-size: 20px; font-weight:700; }
-  .kpi-label { font-size: 12px; color: #cfd8dc; }
-  .stDataFrame { color: #e6edf3; }
-  .sidebar .stButton>button { background:#198754; color:white; margin-bottom:5px; width:100%; }
+  
+  .kpi {
+      background: #12131a;
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      margin-bottom: 10px;
+  }
+  .kpi-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 5px;
+  }
+  .kpi-label {
+      font-size: 14px;
+      color: #cfd8dc;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+  }
+  
+  .stDataFrame { color: #e6edf3; font-family: 'Roboto', sans-serif; }
+  .sidebar .stButton>button { 
+      background:#198754; color:white; margin-bottom:5px; width:100%; font-family: 'Roboto', sans-serif; 
+  }
+  .stSelectbox, .stNumberInput, .stFileUploader, .stDownloadButton {
+      font-family: 'Roboto', sans-serif;
+  }
 </style>
 """, unsafe_allow_html=True)
 
@@ -141,7 +171,7 @@ def render_ghg_dashboard(include_data=True):
 
     c1, c2, c3, c4, c5 = st.columns(5)
     with c1:
-        st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:white'>{format_indian(kpis['Total Quantity'])}</div><div class='kpi-label'>Total Quantity</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='kpi'><div class='kpi-value'>{format_indian(kpis['Total Quantity'])}</div><div class='kpi-label'>Total Quantity</div></div>", unsafe_allow_html=True)
     with c2:
         st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 1']}'>{format_indian(kpis['Scope 1'])}</div><div class='kpi-label'>Scope 1</div></div>", unsafe_allow_html=True)
     with c3:

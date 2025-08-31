@@ -155,15 +155,15 @@ if add_mode:
 # Main Dashboard
 # ---------------------------
 st.title("🌍 EinTrust GHG Dashboard")
-st.markdown("Estimate Scope 1, 2 and 3 emissions for net zero journey.")
+st.subheader("📊 GHG Emissions")  # Title for KPIs section
 
 s1,s2,s3 = st.session_state.emissions_summary.get("Scope 1",0.0), st.session_state.emissions_summary.get("Scope 2",0.0), st.session_state.emissions_summary.get("Scope 3",0.0)
 total = s1+s2+s3
 
-# KPIs with sustainability colors
+# KPIs
 c1, c2, c3, c4 = st.columns(4)
 with c1:
-    st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 1']}'>{format_indian(total)}</div><div class='kpi-label'>Total Emissions (tCO₂e)</div></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:white'>{format_indian(total)}</div><div class='kpi-label'>Total Emissions (tCO₂e)</div></div>", unsafe_allow_html=True)
 with c2:
     st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 1']}'>{format_indian(s1)}</div><div class='kpi-label'>Scope 1 (tCO₂e)</div></div>", unsafe_allow_html=True)
 with c3:
@@ -171,11 +171,16 @@ with c3:
 with c4:
     st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 3']}'>{format_indian(s3)}</div><div class='kpi-label'>Scope 3 (tCO₂e)</div></div>", unsafe_allow_html=True)
 
-# Convert log to df
-if st.session_state.emissions_log:
-    df = pd.DataFrame(st.session_state.emissions_log)
+# ---------------------------
+# Emissions Log
+# ---------------------------
+df = pd.DataFrame(st.session_state.emissions_log)
+st.subheader("📜 Emissions Log")
+if df.empty:
+    st.info("No emission log data yet. Add entries from sidebar.")
 else:
-    df = pd.DataFrame(columns=["Timestamp","Scope","Category","Activity","Quantity","Unit","Emission Factor","Emissions (tCO₂e)"])
+    st.dataframe(df,use_container_width=True)
+    st.download_button("📥 Download Current Log (CSV)", data=df.to_csv(index=False), file_name="emissions_log_current.csv", mime="text/csv")
 
 # ---------------------------
 # Pie Chart: Emission Breakdown
@@ -210,7 +215,6 @@ forecast_df=pd.DataFrame({"Month":MONTH_ORDER})
 fig_line=px.line(template="plotly_dark")
 for sc in ["Scope 1","Scope 2","Scope 3"]:
     actual=df[df["Scope"]==sc].groupby("MonthLabel")["Emissions (tCO₂e)"].sum().reindex(MONTH_ORDER,fill_value=0)
-    # simple forecast: linear trend for last 2 observed months
     observed = np.where(actual.values>0)[0]
     if len(observed)>=2:
         coef = np.polyfit(observed, actual.values[observed],1)
@@ -218,16 +222,10 @@ for sc in ["Scope 1","Scope 2","Scope 3"]:
         forecast_vals = [np.nan if i<=observed.max() else max(0,forecast[i]) for i in range(len(MONTH_ORDER))]
     else:
         forecast_vals = [np.nan]*12
-    fig_line.add_scatter(x=MONTH_ORDER, y=actual.values, mode="lines+markers", name=f"{sc} Actual", line=dict(color=ACTUAL_COLOR[sc], width=3))
-    fig_line.add_scatter(x=MONTH_ORDER, y=forecast_vals, mode="lines+markers", name=f"{sc} Forecast", line=dict(color=FORECAST_COLOR[sc], width=3, dash="dot"))
+    fig_line.add_scatter(x=MONTH_ORDER, y=actual.values, mode="lines+markers", name=f"{sc} Actual",
+                         line=dict(color=ACTUAL_COLOR[sc], width=3))
+    fig_line.add_scatter(x=MONTH_ORDER, y=forecast_vals, mode="lines+markers", name=f"{sc} Forecast",
+                         line=dict(color=FORECAST_COLOR[sc], width=3,dash="dot"))
 fig_line.update_layout(yaxis_title="Emissions (tCO₂e)")
 st.subheader("📊 Actual vs Forecast per Scope")
 st.plotly_chart(fig_line,use_container_width=True)
-
-# ---------------------------
-# Emissions Log
-# ---------------------------
-st.subheader("📜 Emissions Log")
-st.dataframe(df,use_container_width=True)
-if not df.empty:
-    st.download_button("📥 Download Current Log (CSV)", data=df.to_csv(index=False), file_name="emissions_log_current.csv", mime="text/csv")

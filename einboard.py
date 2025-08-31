@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime
+import os
 
 # --- Page Config ---
 st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout="wide")
@@ -20,7 +21,7 @@ if "emissions_summary" not in st.session_state:
 if "emissions_log" not in st.session_state:
     st.session_state.emissions_log = []
 
-# --- Profile Session State ---
+# Profile session state
 if "profile_photo" not in st.session_state:
     st.session_state.profile_photo = None
 if "responsible_name" not in st.session_state:
@@ -29,10 +30,13 @@ if "responsible_contact" not in st.session_state:
     st.session_state.responsible_contact = ""
 
 # --- Sidebar ---
-# Show Logo
-st.sidebar.image("eintrust_logo.png", use_column_width=True)  # Replace with your logo file
+logo_path = "EinTrust logo.png"
+if os.path.exists(logo_path):
+    st.sidebar.image(logo_path, use_container_width=True)
+else:
+    st.sidebar.write("Logo not found")
 
-# Sidebar navigation
+# Navigation tabs
 selected_tab = st.sidebar.radio("Navigate", ["Profile", "Dashboard"])
 
 # --- Profile Tab ---
@@ -54,10 +58,10 @@ if selected_tab == "Profile":
         "Responsible Person Contact", st.session_state.responsible_contact
     )
 
-    # --- Display Profile on Main Screen ---
+    # --- Main Screen Profile Display ---
     st.subheader("👤 Company Profile")
     if st.session_state.profile_photo:
-        st.image(st.session_state.profile_photo, use_column_width=False, width=200, caption="Profile Photo")
+        st.image(st.session_state.profile_photo, width=200, caption="Profile Photo")
     st.markdown(f"**Company Name:** {company_name}")
     st.markdown(f"**Username:** {username}")
     st.markdown(f"**Responsible Person Name:** {st.session_state.responsible_name}")
@@ -65,10 +69,11 @@ if selected_tab == "Profile":
 
 # --- Dashboard Tab ---
 else:
+    # Sidebar input for activity
     st.sidebar.header("➕ Add Activity Data")
     add_mode = st.sidebar.checkbox("Add Entry Mode", value=False)
 
-    if add_mode:
+    if add_mode and not emission_factors.empty:
         scope_options = emission_factors["scope"].dropna().unique()
         selected_scope = st.sidebar.selectbox("Select Scope", scope_options)
         filtered_df = emission_factors[emission_factors["scope"]==selected_scope]
@@ -115,7 +120,7 @@ else:
                 summary[e["Scope"]] += e["Emissions (tCO₂e)"]
             st.session_state.emissions_summary = summary
 
-    # --- Dashboard Main Screen ---
+    # --- Main Dashboard Display ---
     col1, col2 = st.columns([1,2])
 
     with col1:

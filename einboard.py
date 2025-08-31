@@ -9,18 +9,20 @@ from io import BytesIO
 # --- Page Config ---
 st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout="wide")
 
-# --- Custom CSS for theme ---
+# --- Custom CSS for Professional Theme ---
 st.markdown("""
 <style>
-/* Overall background */
+/* Main app background */
 .stApp {
     background-color: #fdfcf6;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #228B22;
 }
 
 /* Sidebar */
 .css-1d391kg {
     background-color: #f5f5f0;
+    color: #228B22;
 }
 
 /* Headings */
@@ -30,7 +32,7 @@ h1, h2, h3, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
 }
 
 /* Normal text */
-.stText, .stMarkdown p, .stTextInput>div>div>input, .stNumberInput>div>div>input {
+.stText, .stMarkdown p, .stTextInput>div>div>input, .stNumberInput>div>div>input, .stSelectbox>div>div>div>div {
     color: #228B22;
     font-weight: 500;
 }
@@ -48,14 +50,15 @@ h1, h2, h3, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
     color: white;
 }
 
-/* Multiselect and other widgets */
-.css-1hynsf2, .css-1a9e8bs, .stSelectbox>div>div>div>div {
+/* Multiselect, input boxes, textareas */
+.css-1hynsf2, .stSelectbox>div>div>div>div, .stNumberInput>div>div>input {
     color: #228B22;
 }
 
 /* Dataframe styling */
 .stDataFrame>div>div>div>div {
     color: #228B22;
+    font-weight: 500;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -72,6 +75,11 @@ try:
     st.sidebar.image(img, use_container_width=True)
 except Exception as e:
     st.sidebar.write("Logo not available:", e)
+
+# --- Sidebar Mini-Profile for Responsible Person ---
+st.sidebar.markdown("### 🧑 Responsible Person")
+resp_name = st.sidebar.text_input("Name", value="Enter name")
+resp_contact = st.sidebar.text_input("Contact", value="Enter contact")
 
 # --- Load Emission Factors ---
 try:
@@ -145,7 +153,7 @@ with col1:
     if st.session_state.emissions_log:
         latest = st.session_state.emissions_log[-1]
         for k,v in latest.items():
-            st.markdown(f"- {k}: {v}")
+            st.markdown(f"- **{k}:** {v}")
     else:
         st.info("No data yet. Add from sidebar.")
 
@@ -156,8 +164,8 @@ with col2:
     chart_df = chart_df[chart_df["Emissions"]>0]
 
     if not chart_df.empty:
-        # Pie chart with royal blue & forest green slices
-        colors = ['#4169E1','#228B22','#1F3A93']  # Royal blue, forest green, dark blue
+        # Pie chart with professional theme colors
+        colors = ['#4169E1', '#228B22', '#1F3A93']  # Royal blue, Forest green, Dark blue
         fig = px.pie(chart_df, names="Scope", values="Emissions",
                      color="Scope", color_discrete_sequence=colors, hole=0.45)
         fig.update_traces(textinfo='percent+label', textfont_size=14)

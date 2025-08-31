@@ -186,6 +186,7 @@ def render_ghg_dashboard(include_data=True):
     
     kpis = calculate_kpis()
     SCOPE_COLORS = {"Scope 1": "#81c784", "Scope 2": "#4db6ac", "Scope 3": "#aed581"}
+    ICONS = {"Total Quantity": "🌱", "Scope 1": "🔥", "Scope 2": "⚡", "Scope 3": "✈️"}
 
     c1, c2, c3, c4 = st.columns(4)
     for col, label, value, color in zip(

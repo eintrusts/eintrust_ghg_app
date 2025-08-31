@@ -280,4 +280,4 @@ elif st.session_state.page == "Energy":
     render_energy_dashboard(include_input=True, show_chart=True)
 else:
     st.subheader(f"{st.session_state.page} section")
-    st.info("This
+    st.info("This section is under development. Please select other pages from sidebar.")

@@ -168,7 +168,6 @@ def calculate_sdg_engagement():
 # ---------------------------
 def render_sdg_dashboard():
     st.title("Sustainable Development Goals (SDGs)")
-    st.subheader("Company Engagement on All 17 SDGs")
 
     sdg_engagement = calculate_sdg_engagement()
     cols_per_row = 3

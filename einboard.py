@@ -127,7 +127,7 @@ if "renewable_entries" not in st.session_state:
 if "sdg_engagement" not in st.session_state:
     st.session_state.sdg_engagement = {i:0 for i in range(1,18)}
 if "employee_data" not in st.session_state:
-    st.session_state.employee_data = {"workforce": pd.DataFrame(), "diversity": pd.DataFrame()}
+    st.session_state.employee_data = {}
 
 # ---------------------------
 # Constants

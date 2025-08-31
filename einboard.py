@@ -127,44 +127,28 @@ if "renewable_entries" not in st.session_state:
 if "sdg_engagement" not in st.session_state:
     st.session_state.sdg_engagement = {i:0 for i in range(1,18)}
 if "employee_data" not in st.session_state:
-    st.session_state.employee_data = pd.DataFrame()  # Initialize empty dataframe to prevent KeyError
+    # initialize Employee DataFrame with all fields
+    fields = [
+        "Permanent Employees","Temporary Employees","Age <30","Age 30-50","Age >50",
+        "Employees from marginalized communities","Persons with Disabilities",
+        "Women in Leadership","Policy on Diversity and Inclusion","Average Tenure of Employees",
+        "Employee Turnover Rate","Type of Trainings","Number of Employees Trained",
+        "Total Training Hours","Employee Engagement Survey Done?",
+        "Parental Leave Policy","Benefits Provided (PF/Health Insurance/Paid Leave)"
+    ]
+    rows = []
+    for f in fields:
+        rows.append({"Field": f,"Male":0,"Female":0,"Total":0,"Information":"","Relevant Frameworks":""})
+    st.session_state.employee_data = pd.DataFrame(rows)
 
 # ---------------------------
 # Employee Page
 # ---------------------------
 def render_employee_dashboard():
     st.title("Employee Data & Workforce Profile")
-    
-    fields = [
-        {"Field": "Permanent Employees", "Info": "", "Frameworks": "BRSR, GRI 2-7, SASB"},
-        {"Field": "Temporary Employees", "Info": "", "Frameworks": "BRSR, GRI 2-7, SASB"},
-        {"Field": "Age <30", "Info": "", "Frameworks": "BRSR, GRI 2-7"},
-        {"Field": "Age 30-50", "Info": "", "Frameworks": "BRSR, GRI 2-7"},
-        {"Field": "Age >50", "Info": "", "Frameworks": "BRSR, GRI 2-7"},
-        {"Field": "Employees from marginalized communities", "Info": "", "Frameworks": "BRSR P5, GRI 405"},
-        {"Field": "Persons with Disabilities", "Info": "", "Frameworks": "BRSR P5"},
-        {"Field": "Women in Leadership", "Info": "", "Frameworks": "BRSR P5, GRI 405"},
-        {"Field": "Policy on Diversity and Inclusion", "Info": "Upload/Share link", "Frameworks": "BRSR P5, GRI 405"},
-        {"Field": "Average Tenure of Employees", "Info": "", "Frameworks": "BRSR P5"},
-        {"Field": "Employee Turnover Rate", "Info": "", "Frameworks": "BRSR P5, GRI 405"},
-        {"Field": "Type of Trainings", "Info": "", "Frameworks": "GRI 405"},
-        {"Field": "Number of Employees Trained", "Info": "", "Frameworks": "BRSR P5, GRI 404"},
-        {"Field": "Total Training Hours", "Info": "", "Frameworks": "BRSR P5, GRI 404"},
-        {"Field": "Employee Engagement Survey Done?", "Info": "", "Frameworks": "BRSR P5"},
-        {"Field": "Parental Leave Policy", "Info": "", "Frameworks": "BRSR P5"},
-        {"Field": "Benefits Provided (PF/Health Insurance/Paid Leave)", "Info": "", "Frameworks": "GRI 201, GRI 401, SASB, BRSR P3, BRSR P5"}
-    ]
-
-    # Initialize dataframe only if empty
-    if st.session_state.employee_data.empty:
-        rows = []
-        for f in fields:
-            rows.append({"Field": f["Field"], "Male":0, "Female":0, "Total":0, "Information": f["Info"], "Relevant Frameworks": f["Frameworks"]})
-        st.session_state.employee_data = pd.DataFrame(rows)
-
     df = st.session_state.employee_data.copy()
 
-    st.subheader("Fill Male/Female counts")
+    st.subheader("Enter Male/Female counts and additional info")
     for idx, row in df.iterrows():
         cols = st.columns(5)
         cols[0].markdown(f"**{row['Field']}**")
@@ -185,25 +169,54 @@ def render_employee_dashboard():
     st.download_button("Download Employee Data CSV", csv, "employee_data.csv", "text/csv")
 
 # ---------------------------
-# Placeholder Pages (unchanged from your perfect code)
+# Placeholder / Perfect existing pages
 # ---------------------------
-def render_ghg_dashboard(): st.subheader("GHG page placeholder")
-def render_energy_dashboard(): st.subheader("Energy page placeholder")
-def render_sdg_dashboard(): st.subheader("SDG page placeholder")
-def render_home_dashboard(): st.subheader("Home page placeholder")
+def calculate_kpis():
+    df = st.session_state.entries
+    summary = {"Scope 1": 0.0, "Scope 2": 0.0, "Scope 3": 0.0, "Total Quantity": 0.0, "Unit": "tCO₂e"}
+    if not df.empty:
+        for scope in ["Scope 1","Scope 2","Scope 3"]:
+            summary[scope] = df[df["Scope"]==scope]["Quantity"].sum()
+        summary["Total Quantity"] = df["Quantity"].sum()
+    return summary
+
+def render_ghg_dashboard(include_data=True, show_chart=True):
+    st.subheader("GHG Emissions")
+    kpis = calculate_kpis()
+    c1, c2, c3, c4 = st.columns(4)
+    for col, label, value in zip([c1,c2,c3,c4],["Total Quantity","Scope 1","Scope 2","Scope 3"],
+                                 [kpis['Total Quantity'],kpis['Scope 1'],kpis['Scope 2'],kpis['Scope 3']]):
+        col.markdown(f"""
+        <div class='kpi'>
+            <div class='kpi-value'>{format_indian(value)}</div>
+            <div class='kpi-unit'>{kpis['Unit']}</div>
+            <div class='kpi-label'>{label.lower()}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    st.info("GHG Dashboard content continues here...")  # placeholder
+
+def render_energy_dashboard(include_input=True, show_chart=True):
+    st.subheader("Energy Dashboard placeholder")
+    st.info("Energy dashboard content here...")  # placeholder
+
+def render_sdg_dashboard():
+    st.subheader("SDG Dashboard placeholder")
+    st.info("SDG content here...")  # placeholder
 
 # ---------------------------
 # Render Pages
 # ---------------------------
-if st.session_state.page=="Home":
-    render_home_dashboard()
-elif st.session_state.page=="GHG":
-    render_ghg_dashboard()
-elif st.session_state.page=="Energy":
-    render_energy_dashboard()
-elif st.session_state.page=="Employee":
+if st.session_state.page == "Home":
+    st.title("EinTrust Sustainability Dashboard")
+    render_ghg_dashboard(include_data=False, show_chart=False)
+    render_energy_dashboard(include_input=False, show_chart=False)
+elif st.session_state.page == "GHG":
+    render_ghg_dashboard(include_data=True, show_chart=True)
+elif st.session_state.page == "Energy":
+    render_energy_dashboard(include_input=True, show_chart=True)
+elif st.session_state.page == "Employee":
     render_employee_dashboard()
-elif st.session_state.page=="SDG":
+elif st.session_state.page == "SDG":
     render_sdg_dashboard()
 else:
     st.subheader(f"{st.session_state.page} section")

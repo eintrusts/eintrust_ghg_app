@@ -1,13 +1,12 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from datetime import datetime
-from datetime import date
+from datetime import datetime, date
 
 # ---------------------------
 # Page Config & Dark Theme CSS
 # ---------------------------
-st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout="wide")
+st.set_page_config(page_title="EinTrust Dashboard", page_icon="🌍", layout="wide")
 
 st.markdown("""
     <style>
@@ -16,20 +15,26 @@ st.markdown("""
       .kpi-value { font-size: 20px; font-weight:700; }
       .kpi-label { font-size: 12px; color: #cfd8dc; }
       .stDataFrame { color: #e6edf3; }
-      .sidebar .stButton>button { background:#198754; color:white }
+      .sidebar .stButton>button { background:#198754; color:white; }
     </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------
-# Sidebar — Logo + Navigation
+# Sidebar Logo
 # ---------------------------
 st.sidebar.image(
     "https://github.com/eintrusts/eintrust_ghg_app/raw/main/EinTrust%20%20logo.png",
     use_container_width=True
 )
 
-# Navigation
-menu = st.sidebar.radio("Menu", ["🏠 Home", "➕ Add Activity Data"])
+# ---------------------------
+# Sidebar Menu - Environment Dropdown
+# ---------------------------
+st.sidebar.markdown("### Environment")
+selected_env = st.sidebar.selectbox(
+    "Select Area",
+    ["GHG", "Energy", "Water", "Waste", "Biodiversity"]
+)
 
 # ---------------------------
 # Utilities
@@ -54,7 +59,6 @@ def format_indian(n: float) -> str:
             res = s + "," + res
     return ("-" if x < 0 else "") + res
 
-# Sustainability color palette
 SCOPE_COLORS = {"Scope 1": "#4caf50", "Scope 2": "#ff9800", "Scope 3": "#2196f3"}
 
 # ---------------------------
@@ -64,7 +68,7 @@ try:
     emission_factors = pd.read_csv("emission_factors.csv")
 except FileNotFoundError:
     emission_factors = pd.DataFrame(columns=["scope","category","activity","unit","emission_factor"])
-    if menu == "➕ Add Activity Data":
+    if selected_env == "GHG":
         st.sidebar.warning("emission_factors.csv not found — use manual entry.")
 
 # ---------------------------
@@ -76,9 +80,9 @@ if "emissions_summary" not in st.session_state:
     st.session_state.emissions_summary = {"Scope 1": 0.0, "Scope 2": 0.0, "Scope 3": 0.0}
 
 # ---------------------------
-# Dashboard (Home)
+# GHG Dashboard
 # ---------------------------
-if menu == "🏠 Home":
+if selected_env == "GHG":
     st.title("🌍 EinTrust GHG Dashboard")
     st.markdown("Estimate Scope 1, 2 and 3 emissions for net zero journey.")
 
@@ -116,7 +120,7 @@ if menu == "🏠 Home":
         fig_pie.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3")
         st.plotly_chart(fig_pie, use_container_width=True)
     else:
-        st.info("No data to show in breakdown. Add entries from 'Add Activity Data'.")
+        st.info("No data to show in breakdown. Add entries from Environment → GHG.")
 
     # Emissions Trend
     st.subheader("📈 Emissions Trend Over Time (Monthly)")
@@ -149,14 +153,14 @@ if menu == "🏠 Home":
         st.dataframe(log_df, use_container_width=True)
         st.download_button("📥 Download Current Log (CSV)", data=log_df.to_csv(index=False), file_name="emissions_log_current.csv", mime="text/csv")
     else:
-        st.info("No emission log data yet. Add entries from 'Add Activity Data'.")
+        st.info("No emission log data yet. Add entries from Environment → GHG.")
 
 # ---------------------------
-# Add Activity Data Sidebar
+# Add Activity Data Sidebar for GHG
 # ---------------------------
-if menu == "➕ Add Activity Data":
+if selected_env == "GHG":
     st.sidebar.header("Add Activity Data")
-    
+
     if not emission_factors.empty:
         scope_options = emission_factors["scope"].dropna().unique()
         selected_scope = st.sidebar.selectbox("Select Scope", scope_options)
@@ -204,6 +208,7 @@ if menu == "➕ Add Activity Data":
             st.session_state.emissions_summary = summary
             st.sidebar.success("Entry added.")
     else:
+        st.sidebar.info("No emission factor file loaded. Use manual entry.")
         a_scope = st.sidebar.selectbox("Scope (manual)", ["Scope 1","Scope 2","Scope 3"])
         a_activity = st.sidebar.text_input("Activity (manual)")
         a_unit = st.sidebar.text_input("Unit (manual)", value="-")

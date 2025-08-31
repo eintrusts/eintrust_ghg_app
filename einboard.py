@@ -28,12 +28,16 @@ html, body, [class*="css"] { font-family: 'Roboto', sans-serif; }
 
 .sdg-card {
     border-radius: 10px; padding: 15px; margin: 8px;
-    display: inline-block; width: 200px; min-height: 110px;
+    display: inline-block; width: 100%; min-height: 110px;
     text-align: left; color: white;
 }
 .sdg-number { font-weight: 700; font-size: 20px; }
 .sdg-name { font-size: 16px; margin-bottom: 5px; }
 .sdg-percent { font-size: 14px; }
+
+@media (min-width: 768px) {
+    .sdg-card { width: 220px; display: inline-block; }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -121,7 +125,7 @@ if "entries" not in st.session_state:
 if "renewable_entries" not in st.session_state:
     st.session_state.renewable_entries = pd.DataFrame(columns=["Source","Location","Month","Energy_kWh","CO2e_kg","Type"])
 if "sdg_engagement" not in st.session_state:
-    st.session_state.sdg_engagement = {i:0 for i in range(1,18)}  # SDG number: engagement %
+    st.session_state.sdg_engagement = {i:0 for i in range(1,18)}
 
 # ---------------------------
 # Constants
@@ -310,15 +314,14 @@ def render_energy_dashboard(include_input=True, show_chart=True):
             st.experimental_rerun()
 
 # ---------------------------
-# SDG Dashboard (Grid Layout)
+# SDG Dashboard
 # ---------------------------
 def render_sdg_dashboard():
     st.title("Sustainable Development Goals (SDGs)")
     st.subheader("Company Engagement by SDG")
-    
-    num_cols = 4  # columns in grid
-    rows = (len(SDG_LIST) + num_cols - 1) // num_cols
 
+    num_cols = 4
+    rows = (len(SDG_LIST) + num_cols - 1) // num_cols
     idx = 0
     for r in range(rows):
         cols = st.columns(num_cols)

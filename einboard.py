@@ -105,7 +105,7 @@ with st.sidebar:
 # Initialize Data
 # ---------------------------
 if "entries" not in st.session_state:
-    st.session_state.entries = pd.DataFrame(columns=["Scope","Activity","Sub-Activity","Specific Item","Quantity","Unit"])
+    st.session_state.entries = pd.DataFrame(columns=["Scope","Activity","Sub-Activity","Specific Item","Quantity","Unit","Month"])
 if "renewable_entries" not in st.session_state:
     st.session_state.renewable_entries = pd.DataFrame(columns=["Source","Location","Month","Energy_kWh","CO2e_kg","Type"])
 if "water_data" not in st.session_state:
@@ -167,8 +167,6 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
 
     if show_chart and not st.session_state.entries.empty:
         df = st.session_state.entries.copy()
-        if "Month" not in df.columns:
-            df["Month"] = np.random.choice(months, len(df))
         df["Month"] = pd.Categorical(df["Month"], categories=months, ordered=True)
         monthly_trend = df.groupby(["Month","Scope"])["Quantity"].sum().reset_index()
         st.subheader("Monthly GHG Emissions")
@@ -195,6 +193,7 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
 
         unit = units_dict.get(sub_activity, "Number of flights" if sub_activity=="Air Travel" else "km / kg / tonnes")
         quantity = st.number_input(f"Enter quantity ({unit})", min_value=0.0, format="%.2f")
+        month = st.selectbox("Select Month", months)
         uploaded_file = st.file_uploader("Upload CSV/XLS/XLSX/PDF for cross verification (optional)", type=["csv","xls","xlsx","pdf"])
 
         if st.button("Add Entry"):
@@ -204,7 +203,8 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
                 "Sub-Activity": sub_activity,
                 "Specific Item": specific_item if specific_item else "",
                 "Quantity": quantity,
-                "Unit": unit
+                "Unit": unit,
+                "Month": month
             }
             st.session_state.entries = pd.concat([st.session_state.entries, pd.DataFrame([new_entry])], ignore_index=True)
             st.success("GHG entry added successfully!")
@@ -239,7 +239,7 @@ def render_energy_dashboard(include_input=True, show_chart=True):
             return pd.Series([energy_kwh, co2e])
         scope1_2_data[["Energy_kWh","CO2e_kg"]] = scope1_2_data.apply(compute_energy, axis=1)
         scope1_2_data["Type"]="Fossil"
-        scope1_2_data["Month"] = np.random.choice(months, len(scope1_2_data))
+        scope1_2_data["Month"] = pd.Categorical(scope1_2_data["Month"], categories=months, ordered=True)
     all_energy = pd.concat([scope1_2_data.rename(columns={"Sub-Activity":"Fuel"}), st.session_state.renewable_entries], ignore_index=True) if not st.session_state.renewable_entries.empty else scope1_2_data
 
     total_energy = all_energy.groupby("Type")["Energy_kWh"].sum().to_dict() if not all_energy.empty else {}
@@ -262,7 +262,6 @@ def render_energy_dashboard(include_input=True, show_chart=True):
         """, unsafe_allow_html=True)
 
     if show_chart and not all_energy.empty:
-        all_energy["Month"] = pd.Categorical(all_energy.get("Month", months[0]), categories=months, ordered=True)
         monthly_trend = all_energy.groupby(["Month","Type"])["Energy_kWh"].sum().reset_index()
         st.subheader("Monthly Energy Consumption (kWh)")
         fig = px.bar(monthly_trend, x="Month", y="Energy_KWh", color="Type", barmode="stack",
@@ -312,32 +311,34 @@ def render_water_dashboard():
     col3.metric("Recycled Water (m³)", f"{recycled_water:,.0f}")
     col4.metric("Rainwater Harvested (m³)", f"{rainwater:,.0f}")
     col5.metric("Locations with Treatment", f"{treatment_coverage}")
-
     st.metric("Average STP/ETP Capacity (kL/day)", f"{avg_stp_capacity:,.1f}")
 
-    # Monthly Trends
-    monthly_trend = water_df.groupby(["Month","Source"]).sum().reset_index()
-    monthly_trend["Month"] = pd.Categorical(monthly_trend["Month"], categories=months, ordered=True)
+    # Monthly Trends - Water Usage
+    if not water_df.empty:
+        monthly_trend = water_df.groupby(["Month","Source"])["Quantity_m3"].sum().reset_index()
+        monthly_trend["Month"] = pd.Categorical(monthly_trend["Month"], categories=months, ordered=True)
+        st.subheader("Monthly Water Usage (m³) by Source")
+        fig1 = px.line(monthly_trend, x="Month", y="Quantity_m3", color="Source", markers=True,
+                       labels={"Quantity_m3":"Water (m³)"})
+        st.plotly_chart(fig1, use_container_width=True)
 
-    st.subheader("Monthly Water Usage (m³) by Source")
-    fig1 = px.line(monthly_trend, x="Month", y="Quantity_m3", color="Source", markers=True,
-                   labels={"Quantity_m3":"Water (m³)"})
-    st.plotly_chart(fig1, use_container_width=True)
+    # Monthly Trends - Rainwater & Recycled
+    if not adv_df.empty:
+        adv_monthly = adv_df.groupby("Month")[["Rainwater_Harvested_m3","Water_Recycled_m3"]].sum().reset_index()
+        adv_monthly["Month"] = pd.Categorical(adv_monthly["Month"], categories=months, ordered=True)
+        st.subheader("Monthly Rainwater & Recycled Water (m³)")
+        fig2 = px.line(adv_monthly, x="Month", y=["Rainwater_Harvested_m3","Water_Recycled_m3"],
+                       markers=True, labels={"value":"Water (m³)","variable":"Type"})
+        st.plotly_chart(fig2, use_container_width=True)
 
-    adv_monthly = adv_df.groupby("Month")[["Rainwater_Harvested_m3","Water_Recycled_m3"]].sum().reset_index()
-    adv_monthly["Month"] = pd.Categorical(adv_monthly["Month"], categories=months, ordered=True)
+    # Location-wise Usage
+    if not water_df.empty:
+        location_trend = water_df.groupby(["Location","Source"])["Quantity_m3"].sum().reset_index()
+        st.subheader("Water Usage by Location")
+        fig3 = px.bar(location_trend, x="Location", y="Quantity_m3", color="Source", barmode="stack")
+        st.plotly_chart(fig3, use_container_width=True)
 
-    st.subheader("Monthly Rainwater & Recycled Water (m³)")
-    fig2 = px.line(adv_monthly, x="Month", y=["Rainwater_Harvested_m3","Water_Recycled_m3"],
-                   markers=True, labels={"value":"Water (m³)","variable":"Type"})
-    st.plotly_chart(fig2, use_container_width=True)
-
-    # Location-wise
-    location_trend = water_df.groupby(["Location","Source"]).sum().reset_index()
-    st.subheader("Water Usage by Location")
-    fig3 = px.bar(location_trend, x="Location", y="Quantity_m3", color="Source", barmode="stack")
-    st.plotly_chart(fig3, use_container_width=True)
-
+    # STP/ETP Capacity
     if not adv_df.empty:
         st.subheader("STP/ETP Capacity by Location (kL/day)")
         stp_trend = adv_df.groupby("Location")["STP_ETP_Capacity_kL_day"].sum().reset_index()

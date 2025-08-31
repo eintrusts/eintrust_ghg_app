@@ -89,11 +89,17 @@ if add_mode and not emission_factors.empty:
 
 # --- KPI Cards ---
 st.subheader("📊 Key Emission Indicators")
-col1, col2, col3 = st.columns(3)
-for i, scope in enumerate(["Scope 1","Scope 2","Scope 3"]):
+col1, col2, col3, col4 = st.columns(4)
+scopes = ["Scope 1","Scope 2","Scope 3"]
+for i, scope in enumerate(scopes):
     with [col1,col2,col3][i]:
         val = st.session_state.emissions_summary.get(scope,0)
         st.markdown(f"<div class='kpi-card'><span class='big-font'>{val:.2f}</span><br>{scope} Emissions (tCO₂e)</div>", unsafe_allow_html=True)
+
+# Total KPI
+with col4:
+    total_val = sum(st.session_state.emissions_summary.values())
+    st.markdown(f"<div class='kpi-card'><span class='big-font'>{total_val:.2f}</span><br>Total Emissions (tCO₂e)</div>", unsafe_allow_html=True)
 
 # --- Main Dashboard ---
 col1, col2 = st.columns([1,2])
@@ -121,23 +127,13 @@ with col2:
     else:
         st.info("No data to show chart.")
 
-# --- Emission Log ---
+# --- Emission Log & Trend ---
 if st.session_state.emissions_log:
     st.subheader("📂 Emissions Log")
     log_df = pd.DataFrame(st.session_state.emissions_log)
     log_df.index = range(1,len(log_df)+1)
 
-    with st.expander("View & Manage Emission Log", expanded=False):
-        selected_rows = st.multiselect("Select rows to delete", options=log_df.index.tolist(), default=[])
-        if st.button("Delete Selected Rows") and selected_rows:
-            log_df = log_df.drop(index=selected_rows)
-            st.session_state.emissions_log = log_df.to_dict(orient="records")
-
-            summary = {"Scope 1":0,"Scope 2":0,"Scope 3":0}
-            for e in st.session_state.emissions_log:
-                summary[e["Scope"]] += e["Emissions (tCO₂e)"]
-            st.session_state.emissions_summary = summary
-
+    with st.expander("View Emission Log", expanded=False):
         total_row = pd.DataFrame([{
             "Timestamp":"-",
             "Scope":"Total",
@@ -155,13 +151,15 @@ if st.session_state.emissions_log:
         # Download option
         st.download_button("📥 Download Log as CSV", data=final_df.to_csv(index=False), file_name="emissions_log.csv", mime="text/csv")
 
-        # Trend Chart
+        # Monthly Trend Chart
         if len(log_df) > 1:
-            st.subheader("📈 Emissions Trend Over Time")
+            st.subheader("📈 Emissions Trend Over Time (Monthly)")
             trend_df = log_df.copy()
             trend_df["Timestamp"] = pd.to_datetime(trend_df["Timestamp"], errors="coerce")
             trend_df = trend_df.dropna(subset=["Timestamp"])
-            fig2 = px.line(trend_df, x="Timestamp", y="Emissions (tCO₂e)", color="Scope", markers=True,
+            trend_df["Month"] = trend_df["Timestamp"].dt.to_period("M").astype(str)
+            monthly_trend = trend_df.groupby(["Month","Scope"])["Emissions (tCO₂e)"].sum().reset_index()
+            fig2 = px.line(monthly_trend, x="Month", y="Emissions (tCO₂e)", color="Scope", markers=True,
                           color_discrete_sequence=px.colors.sequential.Teal_r)
             fig2.update_layout(paper_bgcolor="#121212", font_color="#e0f2f1")
             st.plotly_chart(fig2, use_container_width=True)

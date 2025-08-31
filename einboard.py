@@ -13,31 +13,22 @@ st.markdown("""
 html, body, [class*="css"] { font-family: 'Roboto', sans-serif; }
 .stApp { background-color: #0d1117; color: #e6edf3; }
 
-.kpi {
-    background: linear-gradient(145deg, #12131a, #1a1b22);
-    padding: 20px; border-radius: 12px; text-align: center;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-    margin-bottom: 10px; min-height: 120px;
+.kpi { background: linear-gradient(145deg, #12131a, #1a1b22); padding: 20px; border-radius: 12px; text-align: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5); margin-bottom: 10px; min-height: 120px;
     display: flex; flex-direction: column; justify-content: center; align-items: center;
-    transition: transform 0.2s, box-shadow 0.2s;
-}
+    transition: transform 0.2s, box-shadow 0.2s; }
 .kpi:hover { transform: scale(1.05); box-shadow: 0 8px 20px rgba(0,0,0,0.6); }
 .kpi-value { font-size: 28px; font-weight: 700; color: #ffffff; margin-bottom: 5px; }
 .kpi-unit { font-size: 16px; font-weight: 500; color: #cfd8dc; margin-bottom: 5px; }
 .kpi-label { font-size: 14px; color: #cfd8dc; letter-spacing: 0.5px; }
 
-.sdg-card {
-    border-radius: 10px; padding: 15px; margin: 8px;
-    display: inline-block; width: 100%; min-height: 110px;
-    text-align: left; color: white;
-}
+.sdg-card { border-radius: 10px; padding: 15px; margin: 8px; display: inline-block; width: 100%; min-height: 110px;
+    text-align: left; color: white; }
 .sdg-number { font-weight: 700; font-size: 20px; }
 .sdg-name { font-size: 16px; margin-bottom: 5px; }
 .sdg-percent { font-size: 14px; }
 
-@media (min-width: 768px) {
-    .sdg-card { width: 220px; display: inline-block; }
-}
+@media (min-width: 768px) { .sdg-card { width: 220px; display: inline-block; } }
 </style>
 """, unsafe_allow_html=True)
 
@@ -191,32 +182,33 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
         </div>
         """, unsafe_allow_html=True)
 
-    if show_chart and not st.session_state.entries.empty:
-        df = st.session_state.entries.copy()
-        if "Month" not in df.columns:
-            df["Month"] = np.random.choice(months, len(df))
-        df["Month"] = pd.Categorical(df["Month"], categories=months, ordered=True)
-        monthly_trend = df.groupby(["Month","Scope"])["Quantity"].sum().reset_index()
-        st.subheader("Monthly GHG Emissions")
-        fig = px.bar(monthly_trend, x="Month", y="Quantity", color="Scope", barmode="stack",
-                     color_discrete_map=SCOPE_COLORS)
-        st.plotly_chart(fig, use_container_width=True)
-
 # ---------------------------
 # Energy Dashboard
 # ---------------------------
-def render_energy_dashboard(include_input=True, show_chart=True):
-    st.subheader("Energy")
-    df = st.session_state.entries
-    # ... Keep full energy dashboard code as in previous block
-    pass  # Placeholder, keep as previous code
+def render_energy_dashboard():
+    st.subheader("Energy Consumption")
+    df = st.session_state.entries.copy()
+    renewable = st.session_state.renewable_entries.copy()
+    df["Energy_kWh"] = np.random.randint(100,500,size=len(df))  # placeholder for demo
+    df["Type"] = "Fossil"
+    all_energy = pd.concat([df, renewable], ignore_index=True) if not renewable.empty else df
+    if not all_energy.empty:
+        total_energy = all_energy.groupby("Type")["Energy_kWh"].sum().to_dict()
+        fossil = total_energy.get("Fossil",0)
+        renewable_energy = total_energy.get("Renewable",0)
+        st.write(f"Fossil: {fossil} kWh, Renewable: {renewable_energy} kWh")
+        st.dataframe(all_energy)
 
 # ---------------------------
 # Employee Dashboard
 # ---------------------------
 def render_employee_dashboard():
     st.subheader("Employee Data")
-    df = st.session_state.employee_data.copy()
+    df = st.session_state.employee_data
+    if df is None:
+        st.session_state.employee_data = pd.DataFrame(columns=["Employee ID","Name","Department","Designation","Joining Date"])
+        df = st.session_state.employee_data
+
     with st.expander("Add New Employee"):
         emp_id = st.text_input("Employee ID")
         name = st.text_input("Name")
@@ -244,21 +236,18 @@ def render_employee_dashboard():
 # ---------------------------
 def render_sdg_dashboard():
     st.title("Sustainable Development Goals (SDGs)")
-    st.subheader("Company Engagement by SDG")
-
     num_cols = 4
-    rows = (len(SDG_LIST) + num_cols - 1) // num_cols
-    idx = 0
+    rows = (len(SDG_LIST)+num_cols-1)//num_cols
+    idx=0
     for r in range(rows):
         cols = st.columns(num_cols)
         for c in range(num_cols):
-            if idx >= len(SDG_LIST):
-                break
+            if idx>=len(SDG_LIST): break
             sdg_name = SDG_LIST[idx]
             sdg_color = SDG_COLORS[idx]
-            sdg_number = idx + 1
-            engagement = st.session_state.sdg_engagement.get(sdg_number, 0)
-            engagement = cols[c].slider(f"Engagement % - SDG {sdg_number}", 0, 100, value=engagement, key=f"sdg{sdg_number}")
+            sdg_number = idx+1
+            engagement = st.session_state.sdg_engagement.get(sdg_number,0)
+            engagement = cols[c].slider(f"Engagement % - SDG {sdg_number}",0,100,value=engagement,key=f"sdg{sdg_number}")
             st.session_state.sdg_engagement[sdg_number] = engagement
             cols[c].markdown(f"""
             <div class='sdg-card' style='background-color:{sdg_color}'>
@@ -267,23 +256,23 @@ def render_sdg_dashboard():
                 <div class='sdg-percent'>Engagement: {engagement}%</div>
             </div>
             """, unsafe_allow_html=True)
-            idx += 1
+            idx+=1
 
 # ---------------------------
 # Render Pages
 # ---------------------------
-if st.session_state.page == "Home":
+if st.session_state.page=="Home":
     st.title("EinTrust Sustainability Dashboard")
-    render_ghg_dashboard(include_data=False, show_chart=False)
-    render_energy_dashboard(include_input=False, show_chart=False)
-elif st.session_state.page == "GHG":
-    render_ghg_dashboard(include_data=True, show_chart=True)
-elif st.session_state.page == "Energy":
-    render_energy_dashboard(include_input=True, show_chart=True)
-elif st.session_state.page == "Employee":
+    render_ghg_dashboard()
+    render_energy_dashboard()
+elif st.session_state.page=="GHG":
+    render_ghg_dashboard()
+elif st.session_state.page=="Energy":
+    render_energy_dashboard()
+elif st.session_state.page=="Employee":
     render_employee_dashboard()
-elif st.session_state.page == "SDG":
+elif st.session_state.page=="SDG":
     render_sdg_dashboard()
 else:
     st.subheader(f"{st.session_state.page} section")
-    st.info("This section is under development. Please select other pages from sidebar.")
+    st.info("This section is under development.")

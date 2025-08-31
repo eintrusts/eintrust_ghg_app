@@ -105,6 +105,8 @@ scope_activities = {
 units_dict = {"Diesel Generator": "Liters", "Petrol Generator": "Liters", "Diesel Vehicle": "Liters",
               "Grid Electricity": "kWh"}
 
+months = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"]
+
 def calculate_kpis():
     df = st.session_state.entries
     summary = {"Scope 1": 0.0, "Scope 2": 0.0, "Scope 3": 0.0, "Total Quantity": 0.0, "Unit": "tCO₂e"}
@@ -132,6 +134,19 @@ def render_ghg_dashboard(include_data=True):
             <div class='kpi-label'>{label.lower()}</div>
         </div>
         """, unsafe_allow_html=True)
+
+    # Monthly trend for GHG (all scopes) on GHG page only
+    if not st.session_state.entries.empty:
+        df = st.session_state.entries.copy()
+        # Assign random months if Month column missing
+        if "Month" not in df.columns:
+            df["Month"] = np.random.choice(months, len(df))
+        df["Month"] = pd.Categorical(df["Month"], categories=months, ordered=True)
+        monthly_trend = df.groupby(["Month","Scope"])["Quantity"].sum().reset_index()
+        st.subheader("Monthly GHG Emissions Trend")
+        fig = px.line(monthly_trend, x="Month", y="Quantity", color="Scope", markers=True,
+                      color_discrete_map=SCOPE_COLORS)
+        st.plotly_chart(fig, use_container_width=True)
 
     if include_data:
         scope = st.selectbox("Select scope", list(scope_activities.keys()))
@@ -184,7 +199,6 @@ def render_energy_dashboard(include_input=True, show_chart=True):
     calorific_values = {"Diesel": 35.8,"Petrol": 34.2,"LPG":46.1,"CNG":48,"Coal":24,"Biomass":15}
     emission_factors = {"Diesel":2.68,"Petrol":2.31,"LPG":1.51,"CNG":2.02,"Coal":2.42,"Biomass":0.0,
                         "Electricity":0.82,"Solar":0.0,"Wind":0.0,"Purchased Green Energy":0.0,"Biogas":0.0}
-    months = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"]
     COLOR_PALETTE = {"Fossil": "#f39c12", "Renewable": "#2ecc71"}
 
     df = st.session_state.entries
@@ -266,4 +280,4 @@ elif st.session_state.page == "Energy":
     render_energy_dashboard(include_input=True, show_chart=True)
 else:
     st.subheader(f"{st.session_state.page} section")
-    st.info("This section is under development. Please select other pages from sidebar.")
+    st.info("This

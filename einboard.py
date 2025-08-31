@@ -94,7 +94,7 @@ with st.sidebar:
         if st.button("Risk Management", key="btn_risk"): st.session_state.page="Risk Management"
 
 # ---------------------------
-# GHG Module
+# Constants
 # ---------------------------
 scope_activities = {
     "Scope 1": {"Stationary Combustion": {"Diesel Generator":"Generator running on diesel","Petrol Generator":"Generator running on petrol"}},
@@ -106,7 +106,11 @@ calorific_values = {"Diesel":35.8,"Petrol":34.2,"LPG":46.1,"CNG":48,"Coal":24,"B
 emission_factors_energy = {"Diesel":2.68,"Petrol":2.31,"LPG":1.51,"CNG":2.02,"Coal":2.42,"Biomass":0.0,
                            "Electricity":0.82,"Solar":0.0,"Wind":0.0,"Purchased Green Energy":0.0,"Biogas":0.0}
 months = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"]
+ENERGY_COLORS = {"Fossil":"#ff7043","Renewable":"#4db6ac"}
 
+# ---------------------------
+# Functions
+# ---------------------------
 def calculate_ghg_kpis():
     df = st.session_state.entries
     summary = {"Scope 1":0.0,"Scope 2":0.0,"Scope 3":0.0,"Total Quantity":0.0,"Unit":"tCO₂e"}
@@ -146,9 +150,6 @@ def render_ghg_dashboard(include_data=True):
             st.success("Entry added successfully!")
             st.experimental_rerun()
 
-# ---------------------------
-# Energy Module
-# ---------------------------
 def compute_fossil_from_ghg():
     df = st.session_state.entries
     fossil_list = []
@@ -163,25 +164,26 @@ def compute_fossil_from_ghg():
     if fossil_list: return pd.DataFrame(fossil_list)
     return pd.DataFrame(columns=["Month","Energy_kWh","CO2e_kg","Type","Fuel"])
 
-def render_energy_dashboard(include_entry=True):
+def render_energy_dashboard(include_entry=True, show_trend=True):
     st.subheader("Energy Dashboard")
     fossil_df = compute_fossil_from_ghg()
     renewable_df = st.session_state.energy_data
     all_energy = pd.concat([fossil_df,renewable_df], ignore_index=True) if not fossil_df.empty else renewable_df
 
-    # KPI
+    # KPI Boxes
     total_energy = all_energy.groupby("Type")["Energy_kWh"].sum().to_dict() if not all_energy.empty else {"Fossil":0,"Renewable":0}
     col1,col2,col3 = st.columns(3)
-    col1.markdown(f"<div class='kpi'><div class='kpi-value'>{format_indian(total_energy.get('Fossil',0))}</div><div class='kpi-unit'>kWh</div><div class='kpi-label'>fossil energy</div></div>", unsafe_allow_html=True)
-    col2.markdown(f"<div class='kpi'><div class='kpi-value'>{format_indian(total_energy.get('Renewable',0))}</div><div class='kpi-unit'>kWh</div><div class='kpi-label'>renewable energy</div></div>", unsafe_allow_html=True)
-    col3.markdown(f"<div class='kpi'><div class='kpi-value'>{format_indian(total_energy.get('Fossil',0)+total_energy.get('Renewable',0))}</div><div class='kpi-unit'>kWh</div><div class='kpi-label'>total energy</div></div>", unsafe_allow_html=True)
+    col1.markdown(f"<div class='kpi'><div class='kpi-value'>{format_indian(total_energy.get('Fossil',0)+total_energy.get('Renewable',0))}</div><div class='kpi-unit'>kWh</div><div class='kpi-label'>total energy</div></div>", unsafe_allow_html=True)
+    col2.markdown(f"<div class='kpi'><div class='kpi-value'>{format_indian(total_energy.get('Fossil',0))}</div><div class='kpi-unit'>kWh</div><div class='kpi-label'>fossil energy</div></div>", unsafe_allow_html=True)
+    col3.markdown(f"<div class='kpi'><div class='kpi-value'>{format_indian(total_energy.get('Renewable',0))}</div><div class='kpi-unit'>kWh</div><div class='kpi-label'>renewable energy</div></div>", unsafe_allow_html=True)
 
-    # Trend Stacked Bar
-    if not all_energy.empty:
+    # Monthly Trend
+    if show_trend and not all_energy.empty:
         trend = all_energy.groupby(["Month","Type"]).sum().reset_index()
         trend["Month"] = pd.Categorical(trend["Month"], categories=months, ordered=True)
         st.subheader("Monthly Energy Consumption Trend")
-        fig = px.bar(trend, x="Month", y="Energy_kWh", color="Type", barmode="stack", labels={"Energy_kWh":"Energy (kWh)"})
+        fig = px.bar(trend, x="Month", y="Energy_kWh", color="Type", barmode="stack",
+                     color_discrete_map=ENERGY_COLORS, labels={"Energy_kWh":"Energy (kWh)"})
         st.plotly_chart(fig, use_container_width=True)
 
     # Renewable Entry
@@ -208,11 +210,11 @@ def render_energy_dashboard(include_entry=True):
 st.title("🌍 EinTrust Sustainability Dashboard")
 if st.session_state.page=="Home":
     render_ghg_dashboard(include_data=False)
-    render_energy_dashboard(include_entry=False)
+    render_energy_dashboard(include_entry=False, show_trend=False)
 elif st.session_state.page=="GHG":
     render_ghg_dashboard(include_data=True)
 elif st.session_state.page=="Energy":
-    render_energy_dashboard(include_entry=True)
+    render_energy_dashboard(include_entry=True, show_trend=True)
 else:
     st.subheader(f"{st.session_state.page} section")
     st.info("This section is under development. Please select other pages from sidebar.")

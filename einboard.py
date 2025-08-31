@@ -50,6 +50,8 @@ def format_indian(n: float) -> str:
             res = s + "," + res
     return ("-" if x < 0 else "") + res
 
+months = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"]
+
 # ---------------------------
 # Sidebar & Navigation
 # ---------------------------
@@ -108,6 +110,13 @@ if "entries" not in st.session_state:
     st.session_state.entries = pd.DataFrame(columns=["Scope","Activity","Sub-Activity","Specific Item","Quantity","Unit"])
 if "renewable_entries" not in st.session_state:
     st.session_state.renewable_entries = pd.DataFrame(columns=["Source","Location","Month","Energy_kWh","CO2e_kg","Type"])
+if "water_data" not in st.session_state:
+    st.session_state.water_data = pd.DataFrame(columns=["Location","Source","Month","Quantity_m3","Cost_INR"])
+if "advanced_water_data" not in st.session_state:
+    st.session_state.advanced_water_data = pd.DataFrame(columns=[
+        "Location","Month","Rainwater_Harvested_m3","Water_Recycled_m3",
+        "Treatment_Before_Discharge","STP_ETP_Capacity_kL_day"
+    ])
 
 # ---------------------------
 # Constants
@@ -122,8 +131,6 @@ scope_activities = {
 
 units_dict = {"Diesel Generator": "Liters", "Petrol Generator": "Liters", "Diesel Vehicle": "Liters",
               "Grid Electricity": "kWh"}
-
-months = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"]
 
 SCOPE_COLORS = {"Scope 1": "#81c784", "Scope 2": "#4db6ac", "Scope 3": "#aed581"}
 ENERGY_COLORS = {"Fossil": "#f39c12", "Renewable": "#2ecc71"}
@@ -283,6 +290,58 @@ def render_energy_dashboard(include_input=True, show_chart=True):
             st.experimental_rerun()
 
 # ---------------------------
+# Water Dashboard
+# ---------------------------
+def render_water_dashboard():
+    st.title("💧 Water Consumption & Management Dashboard (Apr→Mar)")
+    water_df = st.session_state.water_data
+    adv_df = st.session_state.advanced_water_data
+
+    # KPI Cards
+    total_water = water_df["Quantity_m3"].sum()
+    total_cost = water_df["Cost_INR"].sum()
+    recycled_water = adv_df["Water_Recycled_m3"].sum()
+    rainwater = adv_df["Rainwater_Harvested_m3"].sum()
+    treatment_coverage = adv_df["Treatment_Before_Discharge"].value_counts().get("Yes",0)
+    avg_stp_capacity = adv_df["STP_ETP_Capacity_kL_day"].mean() if not adv_df.empty else 0
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+    col1.metric("Total Water Used (m³)", f"{total_water:,.0f}")
+    col2.metric("Estimated Cost (INR)", f"₹ {total_cost:,.0f}")
+    col3.metric("Recycled Water (m³)", f"{recycled_water:,.0f}")
+    col4.metric("Rainwater Harvested (m³)", f"{rainwater:,.0f}")
+    col5.metric("Locations with Treatment", f"{treatment_coverage}")
+    st.metric("Average STP/ETP Capacity (kL/day)", f"{avg_stp_capacity:,.1f}")
+
+    # Monthly Trends
+    if not water_df.empty:
+        monthly_trend = water_df.groupby(["Month","Source"]).sum().reset_index()
+        monthly_trend["Month"] = pd.Categorical(monthly_trend["Month"], categories=months, ordered=True)
+        st.subheader("Monthly Water Usage (m³) by Source")
+        fig1 = px.line(monthly_trend, x="Month", y="Quantity_m3", color="Source", markers=True, labels={"Quantity_m3":"Water (m³)"})
+        st.plotly_chart(fig1, use_container_width=True)
+
+    if not adv_df.empty:
+        adv_monthly = adv_df.groupby("Month")[["Rainwater_Harvested_m3","Water_Recycled_m3"]].sum().reset_index()
+        adv_monthly["Month"] = pd.Categorical(adv_monthly["Month"], categories=months, ordered=True)
+        st.subheader("Monthly Rainwater & Recycled Water (m³)")
+        fig2 = px.line(adv_monthly, x="Month", y=["Rainwater_Harvested_m3","Water_Recycled_m3"], markers=True, labels={"value":"Water (m³)","variable":"Type"})
+        st.plotly_chart(fig2, use_container_width=True)
+
+    # Location-wise analysis
+    if not water_df.empty:
+        location_trend = water_df.groupby(["Location","Source"]).sum().reset_index()
+        st.subheader("Water Usage by Location")
+        fig3 = px.bar(location_trend, x="Location", y="Quantity_m3", color="Source", barmode="stack")
+        st.plotly_chart(fig3, use_container_width=True)
+
+    if not adv_df.empty:
+        st.subheader("STP/ETP Capacity by Location (kL/day)")
+        stp_trend = adv_df.groupby("Location")["STP_ETP_Capacity_kL_day"].sum().reset_index()
+        fig4 = px.bar(stp_trend, x="Location", y="STP_ETP_Capacity_kL_day", labels={"STP_ETP_Capacity_kL_day":"Capacity (kL/day)"})
+        st.plotly_chart(fig4, use_container_width=True)
+
+# ---------------------------
 # Render Pages
 # ---------------------------
 if st.session_state.page == "Home":
@@ -293,6 +352,8 @@ elif st.session_state.page == "GHG":
     render_ghg_dashboard(include_data=True, show_chart=True)
 elif st.session_state.page == "Energy":
     render_energy_dashboard(include_input=True, show_chart=True)
+elif st.session_state.page == "Water":
+    render_water_dashboard()
 else:
     st.subheader(f"{st.session_state.page} section")
     st.info("This section is under development. Please select other pages from sidebar.")

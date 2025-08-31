@@ -17,8 +17,8 @@ except FileNotFoundError:
     emission_factors = pd.DataFrame(columns=["scope","category","activity","unit","emission_factor"])
 
 # --- Session State ---
-if "user_email" not in st.session_state:
-    st.session_state.user_email = None
+if "user_logged_in" not in st.session_state:
+    st.session_state.user_logged_in = False
 if "user_profile" not in st.session_state:
     st.session_state.user_profile = {}
 if "page" not in st.session_state:
@@ -35,33 +35,46 @@ PASSWORD = "your_password"
 TARGET_FOLDER = "/sites/EinTrust/Shared Documents/ClientData"
 ctx = ClientContext(SHAREPOINT_URL).with_credentials(UserCredential(USERNAME, PASSWORD))
 
-# --- Placeholder OAuth Login (replace with proper OAuth setup) ---
-def login_placeholder():
-    st.info("Login placeholder: Set st.session_state.user_email manually for now")
-    if st.button("Login as demo@example.com"):
-        st.session_state.user_email = "demo@example.com"
-        st.session_state.user_profile = {
-            "company_name": "Demo Company",
-            "email": st.session_state.user_email,
-            "responsible_person_name": "",
-            "responsible_person_contact": ""
-        }
-        st.session_state.page = "dashboard"
-        st.experimental_rerun()
+# --- Manual User Database ---
+# Example: company_name -> {username: password}
+USER_DB = {
+    "Demo Company": {"admin": "admin123"},
+    "Test Company": {"user1": "pass123"}
+}
 
 # --- Logout ---
 def logout():
-    st.session_state.user_email = None
+    st.session_state.user_logged_in = False
     st.session_state.user_profile = {}
     st.session_state.page = "login"
     st.experimental_rerun()
+
+# --- Login Page ---
+def login_page():
+    st.title("EinTrust Login")
+    company_name = st.text_input("Company Name")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    if st.button("Login"):
+        if company_name in USER_DB and username in USER_DB[company_name] and USER_DB[company_name][username] == password:
+            st.session_state.user_logged_in = True
+            st.session_state.user_profile = {
+                "company_name": company_name,
+                "username": username,
+                "responsible_person_name": "",
+                "responsible_person_contact": ""
+            }
+            st.session_state.page = "dashboard"
+            st.experimental_rerun()
+        else:
+            st.error("Invalid login credentials.")
 
 # --- Profile Page ---
 def profile_page():
     st.title("Profile Information")
     profile = st.session_state.user_profile
     st.text_input("Company Name", value=profile["company_name"], disabled=True)
-    st.text_input("Email ID", value=profile["email"], disabled=True)
+    st.text_input("Username", value=profile["username"], disabled=True)
     resp_name = st.text_input("Responsible Person Name", value=profile["responsible_person_name"])
     resp_contact = st.text_input("Responsible Person Contact", value=profile["responsible_person_contact"])
     if st.button("Save Profile"):
@@ -72,7 +85,7 @@ def profile_page():
 # --- Dashboard Page ---
 def dashboard_page():
     st.title("Einboard")
-    st.markdown(f"Welcome **{st.session_state.user_email}**! Estimate Scope 1, 2, and 3 emissions for net zero journey.")
+    st.markdown(f"Welcome **{st.session_state.user_profile['username']}** from **{st.session_state.user_profile['company_name']}**!")
 
     # Sidebar - Add Activity
     st.sidebar.header("Add Activity Data")
@@ -158,13 +171,13 @@ def dashboard_page():
         try:
             csv_buffer = io.StringIO()
             log_df.to_csv(csv_buffer, index=False)
-            csv_name = f"emissions_{st.session_state.user_email}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            csv_name = f"emissions_{st.session_state.user_profile['username']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
             ctx.web.get_folder_by_server_relative_url(TARGET_FOLDER).upload_file(csv_name, csv_buffer.getvalue().encode()).execute_query()
         except:
             st.error("Failed to save to SharePoint")
 
 # --- Sidebar Bottom ---
-if st.session_state.page != "login" and st.session_state.user_email:
+if st.session_state.user_logged_in:
     st.sidebar.markdown("---")
     if st.sidebar.button("Profile"):
         st.session_state.page = "profile"
@@ -172,9 +185,8 @@ if st.session_state.page != "login" and st.session_state.user_email:
         logout()
 
 # --- Page Routing ---
-if st.session_state.page == "login":
-    if not st.session_state.user_email:
-        login_placeholder()
+if not st.session_state.user_logged_in:
+    login_page()
 elif st.session_state.page == "profile":
     profile_page()
 elif st.session_state.page == "dashboard":

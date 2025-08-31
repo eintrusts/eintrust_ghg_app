@@ -6,10 +6,6 @@ import io
 from office365.runtime.auth.user_credential import UserCredential
 from office365.sharepoint.client_context import ClientContext
 
-# OAuth imports
-from authlib.integrations.requests_client import OAuth2Session
-from urllib.parse import urlparse, parse_qs
-
 # --- Page Config ---
 st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout="wide")
 
@@ -39,40 +35,19 @@ PASSWORD = "your_password"
 TARGET_FOLDER = "/sites/EinTrust/Shared Documents/ClientData"
 ctx = ClientContext(SHAREPOINT_URL).with_credentials(UserCredential(USERNAME, PASSWORD))
 
-# --- OAuth Config ---
-CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID"
-CLIENT_SECRET = "YOUR_GOOGLE_CLIENT_SECRET"
-REDIRECT_URI = "http://localhost:8501"  # Change if deployed
-AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
-TOKEN_URL = "https://oauth2.googleapis.com/token"
-SCOPE = ["openid", "email", "profile"]
-
-def google_login():
-    if "oauth_state" not in st.session_state:
-        # Create OAuth session
-        oauth = OAuth2Session(CLIENT_ID, CLIENT_SECRET, scope=SCOPE, redirect_uri=REDIRECT_URI)
-        uri, state = oauth.create_authorization_url(AUTH_URL, access_type="offline", prompt="select_account")
-        st.session_state.oauth_state = state
-        st.markdown(f"[Login with Google]({uri})")
-        st.stop()
-    else:
-        # Parse the response from redirect
-        query_params = parse_qs(urlparse(st.experimental_get_query_params().get("url","")).query)
-        if "code" in query_params:
-            code = query_params["code"][0]
-            oauth = OAuth2Session(CLIENT_ID, CLIENT_SECRET, scope=SCOPE, redirect_uri=REDIRECT_URI)
-            token = oauth.fetch_token(TOKEN_URL, code=code)
-            userinfo = oauth.get("https://www.googleapis.com/oauth2/v3/userinfo").json()
-            st.session_state.user_email = userinfo["email"]
-            if not st.session_state.user_profile:
-                st.session_state.user_profile = {
-                    "company_name": "Your Company",
-                    "email": st.session_state.user_email,
-                    "responsible_person_name": "",
-                    "responsible_person_contact": ""
-                }
-            st.session_state.page = "dashboard"
-            st.experimental_rerun()
+# --- Placeholder OAuth Login (replace with proper OAuth setup) ---
+def login_placeholder():
+    st.info("Login placeholder: Set st.session_state.user_email manually for now")
+    if st.button("Login as demo@example.com"):
+        st.session_state.user_email = "demo@example.com"
+        st.session_state.user_profile = {
+            "company_name": "Demo Company",
+            "email": st.session_state.user_email,
+            "responsible_person_name": "",
+            "responsible_person_contact": ""
+        }
+        st.session_state.page = "dashboard"
+        st.experimental_rerun()
 
 # --- Logout ---
 def logout():
@@ -104,6 +79,7 @@ def dashboard_page():
     scope_options = emission_factors["scope"].dropna().unique()
     selected_scope = st.sidebar.selectbox("Select Scope", scope_options)
     filtered_df = emission_factors[emission_factors["scope"]==selected_scope]
+    
     if selected_scope=="Scope 3":
         category_options = filtered_df["category"].dropna().unique()
         selected_category = st.sidebar.selectbox("Select Scope 3 Category", category_options)
@@ -116,6 +92,7 @@ def dashboard_page():
         activity_options = filtered_df["activity"].dropna().unique()
         selected_activity = st.sidebar.selectbox("Select Activity", activity_options)
         activity_df = filtered_df[filtered_df["activity"]==selected_activity]
+
     if not activity_df.empty:
         unit = activity_df["unit"].values[0]
         ef = activity_df["emission_factor"].values[0]
@@ -166,5 +143,39 @@ def dashboard_page():
         log_df = pd.DataFrame(st.session_state.emissions_log)
         log_df.index = range(1,len(log_df)+1)
         total_row = pd.DataFrame([{
-            "Timestamp":"-","Scope":"Total","Category":"-","Activity":"-",
-            "Quantity":log_df["Quantity"].sum(),"Unit":"","Emissi_
+            "Timestamp": "-",
+            "Scope": "Total",
+            "Category": "-",
+            "Activity": "-",
+            "Quantity": log_df["Quantity"].sum(),
+            "Unit": "",
+            "Emission Factor": "-",
+            "Emissions (tCO₂e)": log_df["Emissions (tCO₂e)"].sum()
+        }])
+        final_df = pd.concat([log_df,total_row], ignore_index=True)
+        st.dataframe(final_df, use_container_width=True)
+        # Save to SharePoint
+        try:
+            csv_buffer = io.StringIO()
+            log_df.to_csv(csv_buffer, index=False)
+            csv_name = f"emissions_{st.session_state.user_email}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            ctx.web.get_folder_by_server_relative_url(TARGET_FOLDER).upload_file(csv_name, csv_buffer.getvalue().encode()).execute_query()
+        except:
+            st.error("Failed to save to SharePoint")
+
+# --- Sidebar Bottom ---
+if st.session_state.page != "login" and st.session_state.user_email:
+    st.sidebar.markdown("---")
+    if st.sidebar.button("Profile"):
+        st.session_state.page = "profile"
+    if st.sidebar.button("Logout"):
+        logout()
+
+# --- Page Routing ---
+if st.session_state.page == "login":
+    if not st.session_state.user_email:
+        login_placeholder()
+elif st.session_state.page == "profile":
+    profile_page()
+elif st.session_state.page == "dashboard":
+    dashboard_page()

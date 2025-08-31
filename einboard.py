@@ -57,7 +57,8 @@ if "page" not in st.session_state:
     st.session_state.page = "Home"
 
 with st.sidebar:
-    st.image("https://github.com/eintrusts/eintrust_ghg_app/raw/main/EinTrust%20%20logo.png", use_container_width=True)
+    # Use new logo URL here
+    st.image("https://raw.githubusercontent.com/eintrusts/assets/main/logo.png", use_container_width=True)
     st.markdown("---")
     
     if st.button("Home"): st.session_state.page = "Home"
@@ -123,7 +124,7 @@ def calculate_kpis():
     return summary
 
 def render_ghg_dashboard(include_data=True, show_chart=True):
-    st.subheader("GHG Emissions")
+    st.subheader("GHG Emissions Dashboard")
     kpis = calculate_kpis()
     c1, c2, c3, c4 = st.columns(4)
     for col, label, value, color in zip(
@@ -140,7 +141,7 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
         </div>
         """, unsafe_allow_html=True)
 
-    # Show monthly trend only on GHG page
+    # Monthly trend chart
     if show_chart and not st.session_state.entries.empty:
         df = st.session_state.entries.copy()
         if "Month" not in df.columns:
@@ -173,7 +174,7 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
         quantity = st.number_input(f"Enter quantity ({unit})", min_value=0.0, format="%.2f")
         uploaded_file = st.file_uploader("Upload CSV/XLS/XLSX/PDF for cross verification (optional)", type=["csv","xls","xlsx","pdf"])
 
-        if st.button("Add Entry"):
+        if st.button("Add GHG Entry"):
             new_entry = {
                 "Scope": scope,
                 "Activity": activity,
@@ -198,13 +199,12 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
 # Energy Dashboard
 # ---------------------------
 def render_energy_dashboard(include_input=True, show_chart=True):
-    st.subheader("Energy")
+    st.subheader("⚡ Energy & CO₂e Dashboard (Apr→Mar)")
     df = st.session_state.entries
     calorific_values = {"Diesel": 35.8,"Petrol": 34.2,"LPG":46.1,"CNG":48,"Coal":24,"Biomass":15}
     emission_factors = {"Diesel":2.68,"Petrol":2.31,"LPG":1.51,"CNG":2.02,"Coal":2.42,"Biomass":0.0,
                         "Electricity":0.82,"Solar":0.0,"Wind":0.0,"Purchased Green Energy":0.0,"Biogas":0.0}
 
-    # Fossil energy
     scope1_2_data = df[df["Scope"].isin(["Scope 1","Scope 2"])].copy() if not df.empty else pd.DataFrame()
     if not scope1_2_data.empty:
         def compute_energy(row):
@@ -219,7 +219,6 @@ def render_energy_dashboard(include_input=True, show_chart=True):
         scope1_2_data["Month"] = np.random.choice(months, len(scope1_2_data))
     all_energy = pd.concat([scope1_2_data.rename(columns={"Sub-Activity":"Fuel"}), st.session_state.renewable_entries], ignore_index=True) if not st.session_state.renewable_entries.empty else scope1_2_data
 
-    # KPI Cards
     total_energy = all_energy.groupby("Type")["Energy_kWh"].sum().to_dict() if not all_energy.empty else {}
     fossil_energy = total_energy.get("Fossil",0)
     renewable_energy = total_energy.get("Renewable",0)
@@ -239,7 +238,6 @@ def render_energy_dashboard(include_input=True, show_chart=True):
         </div>
         """, unsafe_allow_html=True)
 
-    # Monthly trend chart (stacked bar)
     if show_chart and not all_energy.empty:
         all_energy["Month"] = pd.Categorical(all_energy.get("Month", months[0]), categories=months, ordered=True)
         monthly_trend = all_energy.groupby(["Month","Type"])["Energy_kWh"].sum().reset_index()
@@ -248,7 +246,7 @@ def render_energy_dashboard(include_input=True, show_chart=True):
                      color_discrete_map=ENERGY_COLORS)
         st.plotly_chart(fig, use_container_width=True)
 
-    # Renewable input form
+    # Renewable energy input
     if include_input:
         st.subheader("Add Renewable Energy Entry")
         num_entries = st.number_input("Number of renewable energy entries to add", min_value=1, max_value=20, value=1)
@@ -273,8 +271,8 @@ def render_energy_dashboard(include_input=True, show_chart=True):
 # Render Pages
 # ---------------------------
 if st.session_state.page == "Home":
-    st.title("EinTrust Sustainability Dashboard")
-    
+    st.title("🌍 Welcome to EinTrust Dashboard")
+    st.info("GHG & Energy KPIs only. Select pages from sidebar for details.")
     render_ghg_dashboard(include_data=False, show_chart=False)
     render_energy_dashboard(include_input=False, show_chart=False)
 elif st.session_state.page == "GHG":

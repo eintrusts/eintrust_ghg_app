@@ -113,14 +113,13 @@ with st.sidebar:
 # ---------------------------
 st.title("🌍 EinTrust Dashboard")
 
+SCOPE_COLORS = {"Scope 1": "#81c784", "Scope 2": "#4db6ac", "Scope 3": "#aed581"}
+
 def render_home_dashboard():
-    # KPIs
     s1 = st.session_state.emissions_summary.get("Scope 1", 0.0)
     s2 = st.session_state.emissions_summary.get("Scope 2", 0.0)
     s3 = st.session_state.emissions_summary.get("Scope 3", 0.0)
     total = s1 + s2 + s3
-
-    SCOPE_COLORS = {"Scope 1": "#81c784", "Scope 2": "#4db6ac", "Scope 3": "#aed581"}
 
     c1, c2, c3, c4 = st.columns(4)
     c1.markdown(f"<div class='kpi'><div class='kpi-value' style='color:white'>{format_indian(total)}</div><div class='kpi-label'>Total Emissions (tCO₂e)</div></div>", unsafe_allow_html=True)
@@ -128,32 +127,55 @@ def render_home_dashboard():
     c3.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 2']}'>{format_indian(s2)}</div><div class='kpi-label'>Scope 2 (tCO₂e)</div></div>", unsafe_allow_html=True)
     c4.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 3']}'>{format_indian(s3)}</div><div class='kpi-label'>Scope 3 (tCO₂e)</div></div>", unsafe_allow_html=True)
 
-    # Pie Chart
-    st.subheader("📊 Emission Breakdown by Scope")
-    df_log = pd.DataFrame(st.session_state.emissions_log)
-    if not df_log.empty:
-        pie_df = df_log.groupby("Scope", sort=False)["Quantity"].sum().reindex(["Scope 1","Scope 2","Scope 3"]).fillna(0).reset_index()
-        fig_pie = px.pie(pie_df, names="Scope", values="Quantity", color="Scope", color_discrete_map=SCOPE_COLORS, hole=0.45, template="plotly_dark")
-        st.plotly_chart(fig_pie, use_container_width=True)
-    else:
-        st.info("No data yet for pie chart.")
-
-    # Monthly Trend (dummy, can add later)
-    st.subheader("📈 Emissions Trend Over Time (Monthly)")
-    if not df_log.empty:
-        st.info("Trend chart will appear here when time-series data is available.")
-    else:
-        st.info("No data yet for trend chart.")
-
 def render_ghg_dashboard():
     # KPIs same as home
-    render_home_dashboard()
+    s1 = st.session_state.emissions_summary.get("Scope 1", 0.0)
+    s2 = st.session_state.emissions_summary.get("Scope 2", 0.0)
+    s3 = st.session_state.emissions_summary.get("Scope 3", 0.0)
+    total = s1 + s2 + s3
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.markdown(f"<div class='kpi'><div class='kpi-value' style='color:white'>{format_indian(total)}</div><div class='kpi-label'>Total Emissions (tCO₂e)</div></div>", unsafe_allow_html=True)
+    c2.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 1']}'>{format_indian(s1)}</div><div class='kpi-label'>Scope 1 (tCO₂e)</div></div>", unsafe_allow_html=True)
+    c3.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 2']}'>{format_indian(s2)}</div><div class='kpi-label'>Scope 2 (tCO₂e)</div></div>", unsafe_allow_html=True)
+    c4.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 3']}'>{format_indian(s3)}</div><div class='kpi-label'>Scope 3 (tCO₂e)</div></div>", unsafe_allow_html=True)
+
+    st.subheader("📊 Emission Breakdown & Trend (Monthly)")
+    df_log = pd.DataFrame(st.session_state.emissions_log)
+    if not df_log.empty:
+        # Pie
+        pie_df = df_log.groupby("Scope", sort=False)["Quantity"].sum().reindex(["Scope 1","Scope 2","Scope 3"]).fillna(0).reset_index()
+        fig_pie = px.pie(pie_df, names="Scope", values="Quantity", color="Scope", color_discrete_map=SCOPE_COLORS, hole=0.45, template="plotly_dark")
+        # Monthly trend
+        df_log["Timestamp"] = pd.to_datetime(df_log.get("Timestamp", pd.Series([datetime.now()] * len(df_log))))
+        df_log["MonthLabel"] = pd.Categorical(df_log["Timestamp"].dt.strftime("%b"), categories=MONTH_ORDER, ordered=True)
+        trend_df = df_log.groupby(["MonthLabel","Scope"])["Quantity"].sum().reset_index()
+        fig_bar = px.bar(trend_df, x="MonthLabel", y="Quantity", color="Scope", barmode="stack", color_discrete_map=SCOPE_COLORS, template="plotly_dark")
+        st.plotly_chart(fig_pie, use_container_width=True)
+        st.plotly_chart(fig_bar, use_container_width=True)
+    else:
+        st.info("No data yet for breakdown & trend charts.")
+
     st.subheader("➕ Add Activity Data (Indian SME GHG)")
+    
+    # -----------------------------
+    # Upload File Option
+    # -----------------------------
+    uploaded_file = st.file_uploader("Upload Bill / File (CSV/XLS/XLSX)", type=["csv","xls","xlsx"])
+    if uploaded_file:
+        try:
+            if uploaded_file.name.endswith(".csv"):
+                df_file = pd.read_csv(uploaded_file)
+            else:
+                df_file = pd.read_excel(uploaded_file)
+            st.session_state.emissions_log.extend(df_file.to_dict("records"))
+            st.success("File uploaded successfully!")
+        except Exception as e:
+            st.error(f"Error reading file: {e}")
 
     # -----------------------------
-    # GHG Entry Form
+    # Manual GHG Entry Form
     # -----------------------------
-    import numpy as np
     scope_activities = {
         "Scope 1": {"Stationary Combustion": {"Diesel Generator":"Generator running on diesel","Petrol Generator":"Generator running on petrol"},"Mobile Combustion":{"Diesel Vehicle":"Truck/van"}} ,
         "Scope 2": {"Electricity Consumption":{"Grid Electricity":"From grid"}},
@@ -162,36 +184,29 @@ def render_ghg_dashboard():
     units_dict = {"Diesel Generator":"Liters","Petrol Generator":"Liters","Diesel Vehicle":"Liters","Grid Electricity":"kWh","Cement":"Tonnes","Steel":"Tonnes"}
 
     if 'entries' not in st.session_state:
-        st.session_state.entries = pd.DataFrame(columns=["Scope","Activity","Sub-Activity","Specific Item","Quantity","Unit"])
-
-    scope = st.selectbox("Select Scope", list(scope_activities.keys()))
-    activity = st.selectbox("Select Activity / Category", list(scope_activities[scope].keys()))
-    sub_options = scope_activities[scope][activity]
-    if scope != "Scope 3":
-        sub_activity = st.selectbox("Select Sub-Activity", list(sub_options.keys()))
-        st.info(sub_options[sub_activity])
-        specific_item = None
+        st.session_state.entries = pd.DataFrame(columns=["Scope","Activity","Sub-Activity","Specific Item","Quantity","Unit","Timestamp"])
+    
+    scope_sel = st.selectbox("Select Scope", list(scope_activities.keys()))
+    activity_sel = st.selectbox("Select Activity / Category", list(scope_activities[scope_sel].keys()))
+    sub_options = scope_activities[scope_sel][activity_sel]
+    if isinstance(sub_options, dict):
+        sub_activity_sel = st.selectbox("Select Sub-Activity", list(sub_options.keys()))
+        specific_item_sel = None
     else:
-        sub_activity = st.selectbox("Select Sub-Category", list(sub_options.keys()))
-        items = sub_options[sub_activity]
-        specific_item = st.selectbox("Select Specific Item", items) if items else None
-
-    unit = units_dict.get(sub_activity if specific_item is None else specific_item, "")
+        sub_activity_sel = st.selectbox("Select Sub-Category", list(sub_options.keys()))
+        specific_item_sel = st.selectbox("Select Specific Item", sub_options[sub_activity_sel])
+    
+    unit = units_dict.get(sub_activity_sel if specific_item_sel is None else specific_item_sel, "")
     quantity = st.number_input(f"Enter Quantity ({unit})", min_value=0.0, format="%.2f")
+    
+    if st.button("Add Entry"):
+        new_entry = {"Scope":scope_sel,"Activity":activity_sel,"Sub-Activity":sub_activity_sel,"Specific Item":specific_item_sel if specific_item_sel else "",
+                     "Quantity":quantity,"Unit":unit,"Timestamp":datetime.now()}
+        st.session_state.entries = pd.concat([st.session_state.entries,pd.DataFrame([new_entry])], ignore_index=True)
+        st.session_state.emissions_log.append(new_entry)
+        st.success("Entry added!")
 
-    if st.button("Add Manual Entry"):
-        new_entry = {
-            "Scope": scope,
-            "Activity": activity,
-            "Sub-Activity": sub_activity,
-            "Specific Item": specific_item if specific_item else "",
-            "Quantity": quantity,
-            "Unit": unit
-        }
-        st.session_state.entries = pd.concat([st.session_state.entries, pd.DataFrame([new_entry])], ignore_index=True)
-        st.success("Entry added successfully!")
-
-    # Display table
+    # Show entries table
     if not st.session_state.entries.empty:
         st.subheader("All Entries")
         display_df = st.session_state.entries.copy()

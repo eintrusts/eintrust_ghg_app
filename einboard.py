@@ -73,6 +73,7 @@ with st.sidebar:
     st.image("https://github.com/eintrusts/eintrust_ghg_app/blob/main/EinTrust%20%20(2).png?raw=true", use_container_width=True)
     st.markdown("---")
     sidebar_button("Home")
+    
     env_exp = st.expander("Environment", expanded=True)
     with env_exp:
         sidebar_button("GHG")
@@ -80,19 +81,34 @@ with st.sidebar:
         sidebar_button("Water")
         sidebar_button("Waste")
         sidebar_button("Biodiversity")
+    
     social_exp = st.expander("Social")
     with social_exp:
         sidebar_button("Employee")
         sidebar_button("Health & Safety")
         sidebar_button("CSR")
+    
     gov_exp = st.expander("Governance")
     with gov_exp:
         sidebar_button("Board")
         sidebar_button("Policies")
         sidebar_button("Compliance")
         sidebar_button("Risk Management")
-    st.markdown("---")
+    
     sidebar_button("SDG")
+    
+    # ---------------------------
+    # Reports Dropdown
+    # ---------------------------
+    reports_exp = st.expander("Reports")
+    with reports_exp:
+        sidebar_button("BRSR")
+        sidebar_button("GRI")
+        sidebar_button("CDP")
+        sidebar_button("TCFD")
+    
+    sidebar_button("Settings")
+    sidebar_button("Log Out")
 
 # ---------------------------
 # Initialize Data

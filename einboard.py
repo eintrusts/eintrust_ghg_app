@@ -208,7 +208,6 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
             }
             st.session_state.entries = pd.concat([st.session_state.entries, pd.DataFrame([new_entry])], ignore_index=True)
             st.success("GHG entry added successfully!")
-            st.experimental_rerun()
 
         if not st.session_state.entries.empty:
             st.subheader("All entries")
@@ -271,23 +270,19 @@ def render_energy_dashboard(include_input=True, show_chart=True):
 
     if include_input:
         st.subheader("Add Renewable Energy Entry")
-        num_entries = st.number_input("Number of renewable energy entries to add", min_value=1, max_value=20, value=1)
-        renewable_list = []
-        for i in range(int(num_entries)):
-            col1, col2, col3 = st.columns([2,3,3])
-            with col1: source = st.selectbox(f"Source {i+1}", ["Solar","Wind","Biogas","Purchased Green Energy"], key=f"src{i}")
-            with col2: location = st.text_input(f"Location {i+1}", "", key=f"loc{i}")
-            with col3: annual_energy = st.number_input(f"Annual Energy kWh {i+1}", min_value=0.0, key=f"annual_{i}")
-            monthly_energy = annual_energy / 12
-            for m in months:
-                renewable_list.append({"Source": source,"Location": location,"Month": m,
-                                       "Energy_kWh": monthly_energy,"Type":"Renewable",
-                                       "CO2e_kg": monthly_energy*emission_factors.get(source,0)})
-        if renewable_list and st.button("Add Renewable Energy Entries"):
-            new_entries_df = pd.DataFrame(renewable_list)
-            st.session_state.renewable_entries = pd.concat([st.session_state.renewable_entries, new_entries_df], ignore_index=True)
-            st.success(f"{len(new_entries_df)} entries added successfully!")
-            st.experimental_rerun()
+        with st.form("renewable_form"):
+            source = st.selectbox("Source", ["Solar","Wind","Biogas","Purchased Green Energy"])
+            location = st.text_input("Location")
+            annual_energy = st.number_input("Annual Energy kWh", min_value=0.0)
+            submitted = st.form_submit_button("Add Renewable Entry")
+            if submitted:
+                new_entries = []
+                for m in months:
+                    new_entries.append({"Source":source,"Location":location,"Month":m,
+                                       "Energy_kWh":annual_energy/12,"Type":"Renewable",
+                                       "CO2e_kg":annual_energy/12*emission_factors.get(source,0)})
+                st.session_state.renewable_entries = pd.concat([st.session_state.renewable_entries, pd.DataFrame(new_entries)], ignore_index=True)
+                st.success("Renewable energy entry added successfully!")
 
 # ---------------------------
 # Water Dashboard
@@ -327,19 +322,6 @@ def render_water_dashboard():
         st.subheader("Monthly Rainwater & Recycled Water (m³)")
         fig2 = px.line(adv_monthly, x="Month", y=["Rainwater_Harvested_m3","Water_Recycled_m3"], markers=True, labels={"value":"Water (m³)","variable":"Type"})
         st.plotly_chart(fig2, use_container_width=True)
-
-    # Location-wise analysis
-    if not water_df.empty:
-        location_trend = water_df.groupby(["Location","Source"]).sum().reset_index()
-        st.subheader("Water Usage by Location")
-        fig3 = px.bar(location_trend, x="Location", y="Quantity_m3", color="Source", barmode="stack")
-        st.plotly_chart(fig3, use_container_width=True)
-
-    if not adv_df.empty:
-        st.subheader("STP/ETP Capacity by Location (kL/day)")
-        stp_trend = adv_df.groupby("Location")["STP_ETP_Capacity_kL_day"].sum().reset_index()
-        fig4 = px.bar(stp_trend, x="Location", y="STP_ETP_Capacity_kL_day", labels={"STP_ETP_Capacity_kL_day":"Capacity (kL/day)"})
-        st.plotly_chart(fig4, use_container_width=True)
 
 # ---------------------------
 # Render Pages

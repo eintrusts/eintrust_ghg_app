@@ -186,7 +186,7 @@ def render_water_dashboard():
     for col,label,value in zip([c1,c2,c3], ["Freshwater Used","Water Recycled","Rainwater Harvested"], [total_fresh,total_recycled,total_rain]):
         col.markdown(f"<div class='kpi'><div class='kpi-value'>{format_indian(value)}</div><div class='kpi-unit'>kL</div><div class='kpi-label'>{label}</div></div>", unsafe_allow_html=True)
 
-    # --- Input Form only on Water Page ---
+    # --- Input Form ---
     st.subheader("Add Water Entry")
     location = st.text_input("Location")
     freshwater = st.number_input("Freshwater used (kL)", min_value=0.0)
@@ -227,20 +227,21 @@ def render_sdg_dashboard():
             if idx >= len(SDG_LIST): break
             sdg_name = SDG_LIST[idx]
             sdg_color = SDG_COLORS[idx]
-            sdg_number = idx + 1
+            sdg_number = idx+1
             engagement = st.session_state.sdg_engagement.get(sdg_number,0)
             engagement = cols[c].slider(f"Engagement % - SDG {sdg_number}", 0, 100, value=engagement, key=f"sdg{sdg_number}")
             st.session_state.sdg_engagement[sdg_number] = engagement
             cols[c].markdown(f"<div class='sdg-card' style='background-color:{sdg_color}'><div class='sdg-number'>SDG {sdg_number}</div><div class='sdg-name'>{sdg_name}</div><div class='sdg-percent'>Engagement: {engagement}%</div></div>", unsafe_allow_html=True)
-            idx +=1
+            idx += 1
 
 # ---------------------------
 # Render Pages
 # ---------------------------
 if st.session_state.page=="Home":
     st.title("EinTrust Sustainability Dashboard")
-    render_ghg_dashboard(include_data=False, show_chart=False)
-    render_energy_dashboard(include_input=False, show_chart=False)
+    render_ghg_dashboard(include_data=False, show_chart=True)
+    render_energy_dashboard(include_input=False, show_chart=True)
+    render_water_dashboard()  # Home shows KPIs + charts, input form still works but users can skip
 elif st.session_state.page=="GHG":
     render_ghg_dashboard(include_data=True, show_chart=True)
 elif st.session_state.page=="Energy":

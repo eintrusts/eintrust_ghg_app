@@ -25,14 +25,13 @@ html, body, [class*="css"] { font-family: 'Roboto', sans-serif; }
 .kpi-value { font-size: 28px; font-weight: 700; color: #ffffff; margin-bottom: 5px; }
 .kpi-unit { font-size: 16px; font-weight: 500; color: #cfd8dc; margin-bottom: 5px; }
 .kpi-label { font-size: 14px; color: #cfd8dc; letter-spacing: 0.5px; }
-.stDataFrame { color: #e6edf3; font-family: 'Roboto', sans-serif; }
 
 .sdg-block {
-    background: linear-gradient(145deg, #12131a, #1a1b22);
     padding: 15px; border-radius: 12px; text-align: center;
     margin-bottom: 10px; transition: transform 0.2s, box-shadow 0.2s;
 }
 .sdg-block:hover { transform: scale(1.03); box-shadow: 0 6px 18px rgba(0,0,0,0.5); }
+.sdg-number { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 5px; }
 .sdg-name { font-size: 16px; font-weight: 600; color: #ffffff; margin-bottom: 5px; }
 .sdg-progress { font-size: 14px; color: #cfd8dc; margin-bottom: 5px; }
 </style>
@@ -123,7 +122,7 @@ if "renewable_entries" not in st.session_state:
     st.session_state.renewable_entries = pd.DataFrame(columns=["Source","Location","Month","Energy_kWh","CO2e_kg","Type"])
 
 # ---------------------------
-# Constants
+# SDG Constants
 # ---------------------------
 SDG_LIST = [
     "No Poverty", "Zero Hunger", "Good Health & Wellbeing", "Quality Education", "Gender Equality",
@@ -131,6 +130,13 @@ SDG_LIST = [
     "Industry, Innovation & Infrastructure", "Reduced Inequalities", "Sustainable Cities & Communities",
     "Responsible Consumption & Production", "Climate Action", "Life Below Water", "Life on Land",
     "Peace, Justice & Strong Institutions", "Partnerships for the Goals"
+]
+
+# SDG color palette (approximate official SDG colors)
+SDG_COLORS = [
+    "#E5243B","#DDA63A","#4C9F38","#C5192D","#FF3A21","#26BDE2","#FCC30B",
+    "#A21942","#FD6925","#DD1367","#FD9D24","#BF8B2E","#3F7E44","#0A97D9",
+    "#56C02B","#00689D","#19486A"
 ]
 
 # ---------------------------
@@ -162,6 +168,7 @@ def calculate_sdg_engagement():
 # ---------------------------
 def render_sdg_dashboard():
     st.title("Sustainable Development Goals (SDGs)")
+    st.subheader("Company Engagement on All 17 SDGs")
 
     sdg_engagement = calculate_sdg_engagement()
     cols_per_row = 3
@@ -169,9 +176,12 @@ def render_sdg_dashboard():
         cols = st.columns(cols_per_row)
         for j, sdg in enumerate(SDG_LIST[i:i+cols_per_row]):
             with cols[j]:
-                progress = sdg_engagement[sdg]
+                idx = i+j
+                color = SDG_COLORS[idx % len(SDG_COLORS)]
+                progress = sdg_engagement.get(sdg, 0)
                 st.markdown(f"""
-                <div class='sdg-block'>
+                <div class='sdg-block' style='background-color:{color}'>
+                    <div class='sdg-number'>SDG {idx+1}</div>
                     <div class='sdg-name'>{sdg}</div>
                     <div class='sdg-progress'>Engagement: {progress:.2f}%</div>
                     <progress max="100" value="{progress}" style="width:100%"></progress>

@@ -2,6 +2,9 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime
+import io
+from office365.runtime.auth.user_credential import UserCredential
+from office365.sharepoint.client_context import ClientContext
 
 # --- Page Config ---
 st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout="wide")
@@ -11,16 +14,34 @@ st.markdown("Estimate Scope 1, 2, and 3 emissions for net zero journey.")
 # --- Load Emission Factors ---
 try:
     emission_factors = pd.read_csv("emission_factors.csv")
-    st.success("Emission factors loaded successfully!")
 except FileNotFoundError:
-    st.error("emission_factors.csv not found. Please place it in the same folder as einboard.py.")
+    st.error("emission_factors.csv not found. Please place it in the same folder as this app.")
     emission_factors = pd.DataFrame(columns=["scope","category","activity","unit","emission_factor"])
 
 # --- Session State ---
+if "user_email" not in st.session_state:
+    st.session_state.user_email = None
 if "emissions_summary" not in st.session_state:
     st.session_state.emissions_summary = {"Scope 1":0, "Scope 2":0, "Scope 3":0}
 if "emissions_log" not in st.session_state:
     st.session_state.emissions_log = []
+
+# --- Client Login ---
+if st.session_state.user_email is None:
+    st.session_state.user_email = st.text_input("Enter your email to access the dashboard")
+    if st.session_state.user_email:
+        st.success(f"Logged in as {st.session_state.user_email}")
+        st.experimental_rerun()
+
+user_email = st.session_state.user_email
+
+# --- SharePoint Config ---
+SHAREPOINT_URL = "https://eintrusts.sharepoint.com/sites/EinTrust"
+USERNAME = "mrkharat@eintrusts.com"
+PASSWORD = "Kabeer@10"  # store securely (env variable preferred)
+TARGET_FOLDER = "/sites/EinTrust/Documents/General/Organisation/Dashboard/Clients Data"
+
+ctx = ClientContext(SHAREPOINT_URL).with_credentials(UserCredential(USERNAME, PASSWORD))
 
 # --- Sidebar Navigation ---
 nav_choice = st.sidebar.radio("Navigation", ["Dashboard", "Input CSV"], index=1)
@@ -77,9 +98,6 @@ if nav_choice == "Input CSV":
 
 # --- Dashboard ---
 else:
-    with st.expander("📄 View Emission Factors Table"):
-        st.dataframe(emission_factors)
-
     st.sidebar.header("Add Activity Data")
     add_mode = st.sidebar.checkbox("➕ Add Entry Mode", value=False)
 
@@ -184,5 +202,15 @@ else:
         final_df = pd.concat([log_df,total_row], ignore_index=True)
         final_df.index = range(1,len(final_df)+1)
         st.dataframe(final_df, use_container_width=True)
+
+        # --- Save to SharePoint ---
+        try:
+            csv_buffer = io.StringIO()
+            log_df.to_csv(csv_buffer, index=False)
+            csv_name = f"emissions_{user_email}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            ctx.web.get_folder_by_server_relative_url(TARGET_FOLDER).upload_file(csv_name, csv_buffer.getvalue().encode()).execute_query()
+            st.success(f"Data saved to SharePoint for {user_email}")
+        except Exception as e:
+            st.error(f"Failed to save to SharePoint: {e}")
     else:
         st.info("No emission log data yet.")

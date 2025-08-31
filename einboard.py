@@ -53,11 +53,8 @@ def format_indian(n: float) -> str:
 if "page" not in st.session_state:
     st.session_state.page = "Home"
 
-ICON_COLOR = "forestgreen"
-
-def sidebar_button(label, icon=""):
+def sidebar_button(label):
     active = st.session_state.page == label
-    display_label = f"<span style='color:{ICON_COLOR}'>{icon}</span> {label}" if icon else label
     if st.button(label, key=label):
         st.session_state.page = label
     st.markdown(f"""
@@ -73,40 +70,50 @@ def sidebar_button(label, icon=""):
     """, unsafe_allow_html=True)
 
 with st.sidebar:
-    st.image("https://github.com/eintrusts/eintrust_ghg_app/blob/main/EinTrust%20%20(2).png?raw=true", use_container_width=True)
+    # Smaller logo
+    st.image("https://github.com/eintrusts/eintrust_ghg_app/blob/main/EinTrust%20%20(2).png?raw=true", width=150)
     st.markdown("---")
     
-    sidebar_button("Home", "🏠")
+    # Fixed main buttons
+    sidebar_button("Home")
+    sidebar_button("SDG")
+    sidebar_button("Settings")
+    sidebar_button("Log Out")
     
-    # Environment Section
-    st.markdown("**🌱 Environment**")
-    for env_item, icon in zip(["GHG", "Energy", "Water", "Waste", "Biodiversity"],
-                              ["🌍","⚡","💧","🗑️","🐾"]):
-        sidebar_button(env_item, icon)
+    st.markdown("---")
     
-    # Social Section
-    st.markdown("**👥 Social**")
-    for social_item, icon in zip(["Employee", "Health & Safety", "CSR"],
-                                 ["🧑‍💼","🩺","🎗️"]):
-        sidebar_button(social_item, icon)
+    # Scrollable dropdowns
+    st.markdown("**Environment**")
+    env_exp = st.expander("", expanded=True)
+    with env_exp:
+        st.markdown('<div style="max-height:200px;overflow-y:auto;">', unsafe_allow_html=True)
+        for env_item in ["GHG", "Energy", "Water", "Waste", "Biodiversity"]:
+            sidebar_button(env_item)
+        st.markdown('</div>', unsafe_allow_html=True)
     
-    # Governance Section
-    st.markdown("**🏛️ Governance**")
-    for gov_item, icon in zip(["Board", "Policies", "Compliance", "Risk Management"],
-                              ["🗂️","📜","✅","⚠️"]):
-        sidebar_button(gov_item, icon)
+    st.markdown("**Social**")
+    social_exp = st.expander("", expanded=True)
+    with social_exp:
+        st.markdown('<div style="max-height:150px;overflow-y:auto;">', unsafe_allow_html=True)
+        for social_item in ["Employee", "Health & Safety", "CSR"]:
+            sidebar_button(social_item)
+        st.markdown('</div>', unsafe_allow_html=True)
     
-    sidebar_button("SDG", "🎯")
+    st.markdown("**Governance**")
+    gov_exp = st.expander("", expanded=True)
+    with gov_exp:
+        st.markdown('<div style="max-height:180px;overflow-y:auto;">', unsafe_allow_html=True)
+        for gov_item in ["Board", "Policies", "Compliance", "Risk Management"]:
+            sidebar_button(gov_item)
+        st.markdown('</div>', unsafe_allow_html=True)
     
-    # Reports Section
-    st.markdown("**📊 Reports**")
-    for report_item, icon in zip(["BRSR", "GRI", "CDP", "TCFD"],
-                                 ["📝","🌐","🔥","📈"]):
-        sidebar_button(report_item, icon)
-    
-    # Settings & Log Out
-    sidebar_button("Settings", "⚙️")
-    sidebar_button("Log Out", "🔓")
+    st.markdown("**Reports**")
+    reports_exp = st.expander("", expanded=True)
+    with reports_exp:
+        st.markdown('<div style="max-height:150px;overflow-y:auto;">', unsafe_allow_html=True)
+        for report_item in ["BRSR", "GRI", "CDP", "TCFD"]:
+            sidebar_button(report_item)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------------------------
 # Initialize Data
@@ -288,11 +295,11 @@ if st.session_state.page=="Home":
     render_ghg_dashboard(include_data=False, show_chart=False)
     render_energy_dashboard(include_input=False, show_chart=False)
 elif st.session_state.page=="GHG":
-    render_ghg_dashboard()
+    render_ghg_dashboard(include_data=True, show_chart=True)
 elif st.session_state.page=="Energy":
-    render_energy_dashboard()
+    render_energy_dashboard(include_input=True, show_chart=True)
 elif st.session_state.page=="SDG":
     render_sdg_dashboard()
 else:
-    st.title(st.session_state.page)
-    st.info("This section is under development.")
+    st.subheader(f"{st.session_state.page} section")
+    st.info("This section is under development. Please select other pages from sidebar.")

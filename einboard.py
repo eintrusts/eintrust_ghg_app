@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-from datetime import datetime, date
 import numpy as np
+from datetime import datetime, date
+import io
 
 # ---------------------------
 # Config & Dark Theme CSS
@@ -53,14 +53,21 @@ def get_cycle_bounds(today: date):
     return start, end
 
 # ---------------------------
-# Session State
+# Load emission factors
+# ---------------------------
+try:
+    emission_factors = pd.read_csv("emission_factors.csv")
+except FileNotFoundError:
+    emission_factors = pd.DataFrame(columns=["scope","category","activity","unit","emission_factor"])
+    st.sidebar.warning("emission_factors.csv not found — add it to use prefilled activities.")
+
+# ---------------------------
+# Session state
 # ---------------------------
 if "emissions_log" not in st.session_state:
     st.session_state.emissions_log = []
 if "emissions_summary" not in st.session_state:
     st.session_state.emissions_summary = {"Scope 1": 0.0, "Scope 2": 0.0, "Scope 3": 0.0}
-if "entries" not in st.session_state:
-    st.session_state.entries = pd.DataFrame(columns=["Scope","Activity","Sub-Activity","Specific Item","Quantity","Unit","Timestamp"])
 if "page" not in st.session_state:
     st.session_state.page = "Home"
 
@@ -114,87 +121,128 @@ with st.sidebar:
 # Main Content
 # ---------------------------
 st.title("🌍 EinTrust Dashboard")
+
 SCOPE_COLORS = {"Scope 1": "#81c784", "Scope 2": "#4db6ac", "Scope 3": "#aed581"}
 
-def render_trend_chart():
+def render_dashboard(show_add_data=True):
+    # KPIs
+    st.subheader("🌱 GHG Emissions Dashboard")
+    s1 = st.session_state.emissions_summary.get("Scope 1", 0.0)
+    s2 = st.session_state.emissions_summary.get("Scope 2", 0.0)
+    s3 = st.session_state.emissions_summary.get("Scope 3", 0.0)
+    total = s1 + s2 + s3
+
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:white'>{format_indian(total)}</div><div class='kpi-label'>Total Emissions (tCO₂e)</div></div>", unsafe_allow_html=True)
+    with c2:
+        st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 1']}'>{format_indian(s1)}</div><div class='kpi-label'>Scope 1 (tCO₂e)</div></div>", unsafe_allow_html=True)
+    with c3:
+        st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 2']}'>{format_indian(s2)}</div><div class='kpi-label'>Scope 2 (tCO₂e)</div></div>", unsafe_allow_html=True)
+    with c4:
+        st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 3']}'>{format_indian(s3)}</div><div class='kpi-label'>Scope 3 (tCO₂e)</div></div>", unsafe_allow_html=True)
+
+    # Stacked bar chart for Emissions Trend
+    st.subheader("📈 Emissions Trend Over Time (Monthly)")
     df_log = pd.DataFrame(st.session_state.emissions_log)
     if not df_log.empty:
-        df_log["Timestamp"] = pd.to_datetime(df_log.get("Timestamp", pd.Series([datetime.now()] * len(df_log))))
-        df_log["MonthLabel"] = pd.Categorical(df_log["Timestamp"].dt.strftime("%b"), categories=MONTH_ORDER, ordered=True)
-        trend_df = df_log.groupby(["MonthLabel","Scope"])["Quantity"].sum().reset_index()
-        fig_bar = px.bar(trend_df, x="MonthLabel", y="Quantity", color="Scope", barmode="stack",
-                         color_discrete_map=SCOPE_COLORS, template="plotly_dark")
-        fig_bar.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3",
-                              yaxis_title="Quantity", xaxis_title="")
-        st.plotly_chart(fig_bar, use_container_width=True)
+        df_log["Timestamp"] = pd.to_datetime(df_log["Timestamp"], errors="coerce")
+        df_log = df_log.dropna(subset=["Timestamp"])
+        cycle_start, cycle_end = get_cycle_bounds(date.today())
+        df_cycle = df_log[(df_log["Timestamp"].dt.date >= cycle_start) & (df_log["Timestamp"].dt.date <= cycle_end)].copy()
+        if not df_cycle.empty:
+            df_cycle["MonthLabel"] = pd.Categorical(df_cycle["Timestamp"].dt.strftime("%b"), categories=MONTH_ORDER, ordered=True)
+            stacked = df_cycle.groupby(["MonthLabel", "Scope"])["Emissions (tCO₂e)"].sum().reset_index()
+            pivot = stacked.pivot(index="MonthLabel", columns="Scope", values="Emissions (tCO₂e)").reindex(MONTH_ORDER).fillna(0)
+            pivot = pivot.reset_index()
+            melt = pivot.melt(id_vars=["MonthLabel"], var_name="Scope", value_name="Emissions (tCO₂e)")
+            import plotly.express as px
+            fig_bar = px.bar(
+                melt,
+                x="MonthLabel",
+                y="Emissions (tCO₂e)",
+                color="Scope",
+                color_discrete_map=SCOPE_COLORS,
+                barmode="stack",
+                template="plotly_dark"
+            )
+            fig_bar.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3", xaxis_title="", yaxis_title="Emissions (tCO₂e)")
+            st.plotly_chart(fig_bar, use_container_width=True)
     else:
-        st.info("No data yet for trend chart.")
+        st.info("No emissions data yet. Add entries below." if show_add_data else "")
 
-def render_home_dashboard():
-    # KPIs
-    s1 = sum([e.get("Quantity",0) for e in st.session_state.emissions_log if e.get("Scope")=="Scope 1"])
-    s2 = sum([e.get("Quantity",0) for e in st.session_state.emissions_log if e.get("Scope")=="Scope 2"])
-    s3 = sum([e.get("Quantity",0) for e in st.session_state.emissions_log if e.get("Scope")=="Scope 3"])
-    total = s1+s2+s3
-    c1,c2,c3,c4 = st.columns(4)
-    c1.markdown(f"<div class='kpi'><div class='kpi-value' style='color:white'>{format_indian(total)}</div><div class='kpi-label'>Total Emissions</div></div>", unsafe_allow_html=True)
-    c2.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 1']}'>{format_indian(s1)}</div><div class='kpi-label'>Scope 1</div></div>", unsafe_allow_html=True)
-    c3.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 2']}'>{format_indian(s2)}</div><div class='kpi-label'>Scope 2</div></div>", unsafe_allow_html=True)
-    c4.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 3']}'>{format_indian(s3)}</div><div class='kpi-label'>Scope 3</div></div>", unsafe_allow_html=True)
-    
-    st.subheader("📈 Emissions Trend Over Time (Monthly)")
-    render_trend_chart()
+    # Add Activity Data (only on GHG page)
+    if show_add_data:
+        st.subheader("➕ Add Activity Data")
+        if not emission_factors.empty:
+            scope_options = emission_factors["scope"].dropna().unique()
+            selected_scope = st.selectbox("Select Scope", scope_options)
+            filtered_df = emission_factors[emission_factors["scope"] == selected_scope]
 
-def render_ghg_dashboard():
-    # KPIs
-    s1 = sum([e.get("Quantity",0) for e in st.session_state.emissions_log if e.get("Scope")=="Scope 1"])
-    s2 = sum([e.get("Quantity",0) for e in st.session_state.emissions_log if e.get("Scope")=="Scope 2"])
-    s3 = sum([e.get("Quantity",0) for e in st.session_state.emissions_log if e.get("Scope")=="Scope 3"])
-    total = s1+s2+s3
-    c1,c2,c3,c4 = st.columns(4)
-    c1.markdown(f"<div class='kpi'><div class='kpi-value' style='color:white'>{format_indian(total)}</div><div class='kpi-label'>Total Emissions</div></div>", unsafe_allow_html=True)
-    c2.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 1']}'>{format_indian(s1)}</div><div class='kpi-label'>Scope 1</div></div>", unsafe_allow_html=True)
-    c3.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 2']}'>{format_indian(s2)}</div><div class='kpi-label'>Scope 2</div></div>", unsafe_allow_html=True)
-    c4.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 3']}'>{format_indian(s3)}</div><div class='kpi-label'>Scope 3</div></div>", unsafe_allow_html=True)
-    
-    st.subheader("📈 Emissions Trend & Breakdown Over Time (Stacked)")
-    render_trend_chart()
+            if selected_scope == "Scope 3":
+                category_options = filtered_df["category"].dropna().unique()
+                selected_category = st.selectbox("Select Scope 3 Category", category_options)
+                category_df = filtered_df[filtered_df["category"] == selected_category]
+                activity_options = category_df["activity"].dropna().unique()
+                selected_activity = st.selectbox("Select Activity", activity_options)
+                activity_df = category_df[category_df["activity"] == selected_activity]
+            else:
+                selected_category = "-"
+                activity_options = filtered_df["activity"].dropna().unique()
+                selected_activity = st.selectbox("Select Activity", activity_options)
+                activity_df = filtered_df[filtered_df["activity"] == selected_activity]
 
-    # Add Activity Data
-    st.subheader("➕ Add Activity Data")
-    scope_sel = st.selectbox("Select Scope", ["Scope 1","Scope 2","Scope 3"])
-    activity_sel = st.text_input("Activity / Category")
-    sub_activity_sel = st.text_input("Sub-Activity / Sub-Category")
-    specific_item_sel = st.text_input("Specific Item (if any)")
-    unit = st.text_input("Unit (e.g., kg, kWh, Tonnes)")
-    quantity = st.number_input(f"Enter Quantity ({unit})", min_value=0.0, format="%.2f")
-    
-    # Upload Bill / File (after quantity)
-    uploaded_file = st.file_uploader("Upload Bill / File (CSV, XLS, XLSX, PDF)", type=["csv","xls","xlsx","pdf"])
-    
-    if st.button("Add Entry") and quantity>0:
-        new_entry = {"Scope":scope_sel,"Activity":activity_sel,"Sub-Activity":sub_activity_sel,
-                     "Specific Item":specific_item_sel,"Quantity":quantity,"Unit":unit,"Timestamp":datetime.now()}
-        st.session_state.entries = pd.concat([st.session_state.entries,pd.DataFrame([new_entry])], ignore_index=True)
-        st.session_state.emissions_log.append(new_entry)
-        st.success("Entry added!")
+            if not activity_df.empty:
+                unit = str(activity_df["unit"].values[0])
+                ef = float(activity_df["emission_factor"].values[0])
+            else:
+                unit = "-"
+                ef = 0.0
 
-    # Show entries table
-    if not st.session_state.entries.empty:
-        st.subheader("All Entries")
-        display_df = st.session_state.entries.copy()
-        display_df["Quantity"] = display_df["Quantity"].apply(lambda x: f"{x:,.2f}")
-        st.dataframe(display_df)
-        csv = display_df.to_csv(index=False).encode('utf-8')
-        st.download_button("Download All Entries as CSV", csv, "ghg_entries.csv", "text/csv")
+            quantity = st.number_input(f"Enter quantity ({unit})", min_value=0.0, format="%.4f")
+
+            # Upload Bill / File
+            uploaded_file = st.file_uploader("Upload Bill / File (CSV/XLS/XLSX/PDF)", type=["csv","xls","xlsx","pdf"])
+            if uploaded_file:
+                st.success(f"{uploaded_file.name} uploaded successfully!")
+
+            st.markdown(f"Entered Quantity: {format_indian(quantity)} {unit}")
+
+            if st.button("Add Entry") and quantity > 0 and ef > 0:
+                emissions = quantity * ef
+                new_entry = {
+                    "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "Scope": selected_scope,
+                    "Category": selected_category,
+                    "Activity": selected_activity,
+                    "Quantity": quantity,
+                    "Unit": unit,
+                    "Emission Factor": ef,
+                    "Emissions (tCO₂e)": emissions
+                }
+                st.session_state.emissions_log.append(new_entry)
+                summary = {"Scope 1": 0.0, "Scope 2": 0.0, "Scope 3": 0.0}
+                for e in st.session_state.emissions_log:
+                    summary[e["Scope"]] += e["Emissions (tCO₂e)"]
+                st.session_state.emissions_summary = summary
+                st.success("Entry added.")
+
+        # Emissions Log
+        st.subheader("📜 Emissions Log")
+        if st.session_state.emissions_log:
+            log_df = pd.DataFrame(st.session_state.emissions_log).sort_values("Timestamp", ascending=False).reset_index(drop=True)
+            st.dataframe(log_df, use_container_width=True)
+            st.download_button("📥 Download Current Log (CSV)", data=log_df.to_csv(index=False), file_name="emissions_log_current.csv", mime="text/csv")
+        else:
+            st.info("No emission log data yet. Add entries above.")
 
 # ---------------------------
 # Render pages
 # ---------------------------
 if st.session_state.page == "Home":
-    render_home_dashboard()
+    render_dashboard(show_add_data=False)
 elif st.session_state.page == "GHG":
-    render_ghg_dashboard()
+    render_dashboard(show_add_data=True)
 else:
     st.subheader(f"{st.session_state.page} Section")
-    st.info("This section is under development. You can expand functionality in the future.")
+    st.info("This section is under development. Please select other pages from sidebar.")

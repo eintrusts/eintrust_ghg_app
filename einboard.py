@@ -5,56 +5,77 @@ from datetime import datetime, date
 import io
 
 # ---------------------------
-# Config & Dark Theme CSS with Professional Font & Modern KPIs
+# Config & Dark Theme CSS with Enterprise Dashboard Look
 # ---------------------------
 st.set_page_config(page_title="EinTrust Dashboard", page_icon="🌍", layout="wide")
 st.markdown("""
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
 
-  html, body, [class*="css"] {
-      font-family: 'Roboto', sans-serif;
-  }
+html, body, [class*="css"] {
+    font-family: 'Roboto', sans-serif;
+}
 
-  .stApp { background-color: #0d1117; color: #e6edf3; }
-  
-  .kpi {
-      background: #12131a;
-      padding: 20px;
-      border-radius: 12px;
-      text-align: center;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-      margin-bottom: 10px;
-  }
-  .kpi-value {
-      font-size: 28px;
-      font-weight: 700;
-      color: #ffffff;
-      margin-bottom: 5px;
-  }
-  .kpi-label {
-      font-size: 14px;
-      color: #cfd8dc;
-      letter-spacing: 0.5px;
-  }
-  
-  .stDataFrame { color: #e6edf3; font-family: 'Roboto', sans-serif; }
-  .sidebar .stButton>button { 
-      background:#198754; color:white; margin-bottom:5px; width:100%; font-family: 'Roboto', sans-serif; 
-  }
-  .stSelectbox, .stNumberInput, .stFileUploader, .stDownloadButton {
-      font-family: 'Roboto', sans-serif;
-  }
+.stApp { background-color: #0d1117; color: #e6edf3; }
+
+/* KPI boxes */
+.kpi {
+    background: linear-gradient(145deg, #12131a, #1a1b22);
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    margin-bottom: 10px;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.kpi:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+}
+.kpi-icon {
+    font-size: 28px;
+    margin-bottom: 5px;
+}
+.kpi-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 5px;
+}
+.kpi-unit {
+    font-size: 16px;
+    font-weight: 500;
+    color: #cfd8dc;
+    margin-bottom: 5px;
+}
+.kpi-label {
+    font-size: 14px;
+    color: #cfd8dc;
+    letter-spacing: 0.5px;
+}
+
+/* Dataframe styling */
+.stDataFrame { color: #e6edf3; font-family: 'Roboto', sans-serif; }
+
+/* Sidebar buttons */
+.sidebar .stButton>button { 
+    background:#198754; color:white; margin-bottom:5px; width:100%; font-family: 'Roboto', sans-serif; 
+}
+.stSelectbox, .stNumberInput, .stFileUploader, .stDownloadButton {
+    font-family: 'Roboto', sans-serif;
+}
 </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------
 # Utilities
 # ---------------------------
-MONTH_ORDER = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"]
-
 def format_indian(n: float) -> str:
-    """Format numbers in Indian numbering style"""
     try:
         x = int(round(float(n)))
     except Exception:
@@ -90,7 +111,7 @@ if "page" not in st.session_state:
     st.session_state.page = "Home"
 
 # ---------------------------
-# Sidebar (Fixed)
+# Sidebar
 # ---------------------------
 with st.sidebar:
     st.image("https://github.com/eintrusts/eintrust_ghg_app/raw/main/EinTrust%20%20logo.png", use_container_width=True)
@@ -133,7 +154,7 @@ with st.sidebar:
             st.session_state.page = "Risk Management"
 
 # ---------------------------
-# Main Content
+# Main content
 # ---------------------------
 st.title("🌍 EinTrust Sustainability Dashboard")
 
@@ -152,7 +173,6 @@ units_dict = {"Diesel Generator": "Liters", "Petrol Generator": "Liters", "Diese
 # Functions
 # ---------------------------
 def calculate_kpis():
-    """Compute Scope totals and overall total"""
     df = st.session_state.entries
     summary = {"Scope 1": 0.0, "Scope 2": 0.0, "Scope 3": 0.0, "Total Quantity": 0.0, "Unit": "tCO₂e"}
     if not df.empty:
@@ -162,26 +182,30 @@ def calculate_kpis():
     return summary
 
 def render_ghg_dashboard(include_data=True):
-    st.subheader("GHG Emissions Dashboard")
+    st.subheader("GHG emissions dashboard")
     
-    # Update KPIs
     kpis = calculate_kpis()
     SCOPE_COLORS = {"Scope 1": "#81c784", "Scope 2": "#4db6ac", "Scope 3": "#aed581"}
+    ICONS = {"Total Quantity": "🌱", "Scope 1": "🔥", "Scope 2": "⚡", "Scope 3": "✈️"}
 
-    c1, c2, c3, c4, c5 = st.columns(5)
-    with c1:
-        st.markdown(f"<div class='kpi'><div class='kpi-value'>{format_indian(kpis['Total Quantity'])} {kpis['Unit']}</div><div class='kpi-label'>Total quantity</div></div>", unsafe_allow_html=True)
-    with c2:
-        st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 1']}'>{format_indian(kpis['Scope 1'])} {kpis['Unit']}</div><div class='kpi-label'>Scope 1</div></div>", unsafe_allow_html=True)
-    with c3:
-        st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 2']}'>{format_indian(kpis['Scope 2'])} {kpis['Unit']}</div><div class='kpi-label'>Scope 2</div></div>", unsafe_allow_html=True)
-    with c4:
-        st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 3']}'>{format_indian(kpis['Scope 3'])} {kpis['Unit']}</div><div class='kpi-label'>Scope 3</div></div>", unsafe_allow_html=True)
+    c1, c2, c3, c4 = st.columns(4)
+    for col, label, value, color in zip(
+        [c1, c2, c3, c4], 
+        ["Total Quantity", "Scope 1", "Scope 2", "Scope 3"],
+        [kpis['Total Quantity'], kpis['Scope 1'], kpis['Scope 2'], kpis['Scope 3']],
+        ["#ffffff", SCOPE_COLORS['Scope 1'], SCOPE_COLORS['Scope 2'], SCOPE_COLORS['Scope 3']]
+    ):
+        col.markdown(f"""
+        <div class='kpi'>
+            <div class='kpi-icon'>{ICONS[label]}</div>
+            <div class='kpi-value' style='color:{color}'>{format_indian(value)}</div>
+            <div class='kpi-unit'>{kpis['Unit']}</div>
+            <div class='kpi-label'>{label.lower()}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     if include_data:
         st.subheader("Add activity data")
-
-        # Scope selection
         scope = st.selectbox("Select scope", list(scope_activities.keys()))
         activity = st.selectbox("Select activity / category", list(scope_activities[scope].keys()))
         sub_options = scope_activities[scope][activity]
@@ -198,22 +222,10 @@ def render_ghg_dashboard(include_data=True):
             if items is not None:
                 specific_item = st.selectbox("Select specific item", items)
 
-        # Determine unit
-        if scope != "Scope 3":
-            unit = units_dict.get(sub_activity, "")
-        else:
-            if sub_activity == "Air Travel":
-                unit = "Number of flights"
-            else:
-                unit = "km / kg / tonnes"
-
+        unit = units_dict.get(sub_activity, "Number of flights" if sub_activity=="Air Travel" else "km / kg / tonnes")
         quantity = st.number_input(f"Enter quantity ({unit})", min_value=0.0, format="%.2f")
+        uploaded_file = st.file_uploader("Upload CSV/XLS/XLSX/PDF for cross verification (optional)", type=["csv","xls","xlsx","pdf"])
 
-        # File upload for cross-verification only
-        st.subheader("Optional: upload file")
-        uploaded_file = st.file_uploader("Upload CSV/XLS/XLSX/PDF", type=["csv","xls","xlsx","pdf"])
-
-        # Add manual entry
         if st.button("Add entry"):
             new_entry = {
                 "Scope": scope,
@@ -225,15 +237,13 @@ def render_ghg_dashboard(include_data=True):
             }
             st.session_state.entries = pd.concat([st.session_state.entries, pd.DataFrame([new_entry])], ignore_index=True)
             st.success("Entry added successfully!")
-            st.experimental_rerun()  # Refresh dashboard KPIs immediately
+            st.experimental_rerun()
 
-        # Display Entries table
         if not st.session_state.entries.empty:
             st.subheader("All entries")
             display_df = st.session_state.entries.copy()
             display_df["Quantity"] = display_df["Quantity"].apply(lambda x: format_indian(x))
             st.dataframe(display_df)
-
             csv = display_df.to_csv(index=False).encode('utf-8')
             st.download_button("Download all entries as CSV", csv, "ghg_entries.csv", "text/csv")
 
@@ -241,9 +251,9 @@ def render_ghg_dashboard(include_data=True):
 # Render pages
 # ---------------------------
 if st.session_state.page == "Home":
-    render_ghg_dashboard(include_data=False)   # Home: only KPIs
+    render_ghg_dashboard(include_data=False)
 elif st.session_state.page == "GHG":
-    render_ghg_dashboard(include_data=True)    # GHG: full manual entry
+    render_ghg_dashboard(include_data=True)
 else:
     st.subheader(f"{st.session_state.page} section")
     st.info("This section is under development. Please select other pages from sidebar.")

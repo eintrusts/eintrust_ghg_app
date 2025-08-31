@@ -310,24 +310,35 @@ def render_energy_dashboard(include_input=True, show_chart=True):
             st.experimental_rerun()
 
 # ---------------------------
-# SDG Dashboard
+# SDG Dashboard (Grid Layout)
 # ---------------------------
 def render_sdg_dashboard():
     st.title("Sustainable Development Goals (SDGs)")
     st.subheader("Company Engagement by SDG")
     
-    for i, (sdg, color) in enumerate(zip(SDG_LIST, SDG_COLORS), start=1):
-        percent = st.session_state.sdg_engagement.get(i, 0)
-        engagement = st.slider(f"Engagement % - SDG {i}", 0, 100, value=percent, key=f"sdg{i}")
-        st.session_state.sdg_engagement[i] = engagement
-        
-        st.markdown(f"""
-        <div class='sdg-card' style='background-color:{color}'>
-            <div class='sdg-number'>SDG {i}</div>
-            <div class='sdg-name'>{sdg}</div>
-            <div class='sdg-percent'>Engagement: {engagement}%</div>
-        </div>
-        """, unsafe_allow_html=True)
+    num_cols = 4  # columns in grid
+    rows = (len(SDG_LIST) + num_cols - 1) // num_cols
+
+    idx = 0
+    for r in range(rows):
+        cols = st.columns(num_cols)
+        for c in range(num_cols):
+            if idx >= len(SDG_LIST):
+                break
+            sdg_name = SDG_LIST[idx]
+            sdg_color = SDG_COLORS[idx]
+            sdg_number = idx + 1
+            engagement = st.session_state.sdg_engagement.get(sdg_number, 0)
+            engagement = cols[c].slider(f"Engagement % - SDG {sdg_number}", 0, 100, value=engagement, key=f"sdg{sdg_number}")
+            st.session_state.sdg_engagement[sdg_number] = engagement
+            cols[c].markdown(f"""
+            <div class='sdg-card' style='background-color:{sdg_color}'>
+                <div class='sdg-number'>SDG {sdg_number}</div>
+                <div class='sdg-name'>{sdg_name}</div>
+                <div class='sdg-percent'>Engagement: {engagement}%</div>
+            </div>
+            """, unsafe_allow_html=True)
+            idx += 1
 
 # ---------------------------
 # Render Pages

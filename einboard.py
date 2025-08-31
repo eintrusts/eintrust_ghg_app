@@ -28,14 +28,16 @@ st.markdown(
 )
 
 # ---------------------------
-# Sidebar Logo (fit width)
+# Sidebar Logo
 # ---------------------------
 try:
-    response = requests.get("https://raw.githubusercontent.com/eintrusts/eintrust/main/profile_photo.png")
+    # Direct link to the profile photo in the GitHub repository
+    logo_url = "https://raw.githubusercontent.com/eintrusts/eintrust/main/profile_photo.png"
+    response = requests.get(logo_url)
     img = Image.open(BytesIO(response.content))
     st.sidebar.image(img, use_column_width=True)
 except:
-    st.sidebar.warning("Logo could not be loaded.")
+    st.sidebar.warning("Logo could not be loaded. Check the URL or your internet connection.")
 
 # ---------------------------
 # Utilities
@@ -202,7 +204,7 @@ if add_mode and emission_factors.empty:
 st.title("🌍 EinTrust GHG Dashboard")
 st.markdown("Estimate Scope 1, 2 and 3 emissions. Apr–Mar cycle. Dark energy-saving theme.")
 
-# Manual Archive & Reset
+# Archive & Reset Button
 st.sidebar.markdown("---")
 if st.sidebar.button("🗂️ Archive & Reset Now"):
     if st.session_state.emissions_log:
@@ -227,7 +229,6 @@ if st.session_state.archive_csv:
     )
 
 # KPIs
-st.subheader("📊 Key Emission Indicators")
 s1 = st.session_state.emissions_summary.get("Scope 1", 0.0)
 s2 = st.session_state.emissions_summary.get("Scope 2", 0.0)
 s3 = st.session_state.emissions_summary.get("Scope 3", 0.0)
@@ -244,64 +245,41 @@ with c4:
     st.markdown(f"<div class='kpi'><div class='kpi-value'>{format_indian(s3)}</div><div class='kpi-label'>Scope 3 (tCO₂e)</div></div>", unsafe_allow_html=True)
 
 # ---------------------------
-# Emission Breakdown Pie Chart
+# Pie Chart + Stacked Trend
 # ---------------------------
-st.subheader("🧩 Emission Breakdown by Scope")
 df_log = pd.DataFrame(st.session_state.emissions_log)
 
 if not df_log.empty:
+    # Pie Chart
+    st.subheader("🧩 Emission Breakdown by Scope")
     palette = px.colors.qualitative.Dark24
     color_map = {"Scope 1": palette[0], "Scope 2": palette[1], "Scope 3": palette[2]}
-    
     pie_df = df_log.groupby("Scope")["Emissions (tCO₂e)"].sum().reindex(["Scope 1","Scope 2","Scope 3"], fill_value=0).reset_index()
-    fig_pie = px.pie(pie_df, names="Scope", values="Emissions (tCO₂e)", hole=0.45,
-                     color="Scope", color_discrete_map=color_map, template="plotly_dark")
+    fig_pie = px.pie(pie_df, names="Scope", values="Emissions (tCO₂e)", hole=0.45, color="Scope",
+                     color_discrete_map=color_map, template="plotly_dark")
     fig_pie.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3")
     st.plotly_chart(fig_pie, use_container_width=True)
-else:
-    st.info("No data to show in breakdown. Add entries from the sidebar.")
 
-# ---------------------------
-# Emissions Trend Stacked (Apr→Mar) + Forecast
-# ---------------------------
-st.subheader("📈 Emissions Trend Over Time (Monthly — Apr→Mar)")
-if not df_log.empty:
+    # Trend
+    st.subheader("📈 Emissions Trend Over Time (Monthly — Apr→Mar)")
     df_log["Timestamp"] = pd.to_datetime(df_log["Timestamp"], errors="coerce")
     df_log = df_log.dropna(subset=["Timestamp"])
     df_cycle = df_log[(df_log["Timestamp"].dt.date >= cycle_start) & (df_log["Timestamp"].dt.date <= cycle_end)].copy()
-
-    if df_cycle.empty:
-        st.info("No entries in the current Apr–Mar cycle yet.")
-    else:
-        df_cycle["MonthLabel"] = pd.Categorical(df_cycle["Timestamp"].dt.strftime("%b"), categories=MONTH_ORDER, ordered=True)
-        stacked = df_cycle.groupby(["MonthLabel","Scope"])["Emissions (tCO₂e)"].sum().reset_index()
-
-        all_combinations = pd.MultiIndex.from_product([MONTH_ORDER, ["Scope 1","Scope 2","Scope 3"]], names=["MonthLabel","Scope"])
-        stacked = stacked.set_index(["MonthLabel","Scope"]).reindex(all_combinations, fill_value=0).reset_index()
-
-        fig_bar = px.bar(stacked, x="MonthLabel", y="Emissions (tCO₂e)", color="Scope",
-                         color_discrete_map=color_map, barmode="stack", template="plotly_dark")
-        fig_bar.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3", xaxis_title="", yaxis_title="Emissions (tCO₂e)")
-        
-        # Forecast line
-        monthly_total = stacked.groupby("MonthLabel")["Emissions (tCO₂e)"].sum().reindex(MONTH_ORDER, fill_value=0).reset_index()
-        y = monthly_total["Emissions (tCO₂e)"].values.astype(float)
-        x = np.arange(len(y))
-        # Simple linear trend forecast
-        mask_nonzero = y > 0
-        if mask_nonzero.sum() >= 2:
-            coef = np.polyfit(x[mask_nonzero], y[mask_nonzero], 1)
-            forecast = coef[0]*x + coef[1]
-            fig_bar.add_scatter(x=MONTH_ORDER, y=forecast, mode='lines+markers', name='Forecast', line=dict(color='yellow', dash='dash'))
-
-        st.plotly_chart(fig_bar, use_container_width=True)
+    df_cycle["MonthLabel"] = pd.Categorical(df_cycle["Timestamp"].dt.strftime("%b"), categories=MONTH_ORDER, ordered=True)
+    stacked = df_cycle.groupby(["MonthLabel","Scope"])["Emissions (tCO₂e)"].sum().reset_index()
+    all_combinations = pd.MultiIndex.from_product([MONTH_ORDER, ["Scope 1","Scope 2","Scope 3"]], names=["MonthLabel","Scope"])
+    stacked = stacked.set_index(["MonthLabel","Scope"]).reindex(all_combinations, fill_value=0).reset_index()
+    fig_bar = px.bar(stacked, x="MonthLabel", y="Emissions (tCO₂e)", color="Scope", barmode="stack",
+                     color_discrete_map=color_map, template="plotly_dark")
+    fig_bar.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3", xaxis_title="", yaxis_title="Emissions (tCO₂e)")
+    st.plotly_chart(fig_bar, use_container_width=True)
 
 # ---------------------------
 # Emissions Log
 # ---------------------------
 st.subheader("📜 Emissions Log")
-if st.session_state.emissions_log:
-    log_df = pd.DataFrame(st.session_state.emissions_log).sort_values("Timestamp", ascending=False).reset_index(drop=True)
+if not df_log.empty:
+    log_df = df_log.sort_values("Timestamp", ascending=False).reset_index(drop=True)
     st.dataframe(log_df, use_container_width=True)
     st.download_button("📥 Download Current Log (CSV)", data=log_df.to_csv(index=False), file_name="emissions_log_current.csv", mime="text/csv")
 else:

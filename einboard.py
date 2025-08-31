@@ -110,10 +110,10 @@ with st.sidebar:
 # ---------------------------
 # Main Content
 # ---------------------------
-st.title("🌍 EinTrust Dashboard")
+st.title("🌍 EinTrust Sustainability Dashboard")
 
 def render_ghg_dashboard(include_data=True, show_activity=True):
-    st.subheader("🌱 GHG Emissions Dashboard")
+    st.subheader("GHG Emissions")
     st.markdown("Estimate Scope 1, 2, and 3 emissions for net zero journey.")
 
     # KPIs

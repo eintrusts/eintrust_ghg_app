@@ -25,7 +25,7 @@ st.markdown("""
 # Utilities
 # ---------------------------
 MONTH_ORDER = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"]
-SCOPE_COLORS = {"Scope 1":"#4CAF50","Scope 2":"#2196F3","Scope 3":"#FFC107"}
+SCOPE_COLORS = {"Scope 1":"#4CAF50","Scope 2":"#2196F3","Scope 3":"#FFC107"}  # Sustainability theme
 
 # Hidden folder for persistent data
 DATA_DIR = ".streamlit"
@@ -179,7 +179,9 @@ if st.session_state.archive_csv:
 st.title("🌍 EinTrust GHG Dashboard")
 st.markdown("Estimate Scope 1, 2 and 3 emissions for net zero journey.")
 
+# ---------------------------
 # KPIs
+# ---------------------------
 s1,s2,s3 = st.session_state.emissions_summary["Scope 1"], st.session_state.emissions_summary["Scope 2"], st.session_state.emissions_summary["Scope 3"]
 total = s1+s2+s3
 
@@ -191,4 +193,49 @@ with c2:
 with c3:
     st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 2']}'>{format_indian(s2)}</div><div class='kpi-label'>Scope 2 (tCO₂e)</div></div>", unsafe_allow_html=True)
 with c4:
-    st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 3']}'>{format_indian(s3)}</div><div class='kpi-label'>Scope 3 (tCO₂e)</div></div>", unsafe_allow_html
+    st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 3']}'>{format_indian(s3)}</div><div class='kpi-label'>Scope 3 (tCO₂e)</div></div>", unsafe_allow_html=True)
+
+# ---------------------------
+# Emission Breakdown Pie
+# ---------------------------
+st.subheader("📊 Emission Breakdown by Scope")
+df_log = pd.DataFrame(st.session_state.emissions_log)
+if not df_log.empty:
+    pie_df = df_log.groupby("Scope",sort=False)["Emissions (tCO₂e)"].sum().reset_index()
+    fig_pie = px.pie(pie_df, names="Scope", values="Emissions (tCO₂e)", hole=0.45,
+                     color="Scope", color_discrete_map=SCOPE_COLORS, template="plotly_dark")
+    fig_pie.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3")
+    st.plotly_chart(fig_pie, use_container_width=True)
+else:
+    st.info("No data to show in breakdown. Add entries from sidebar.")
+
+# ---------------------------
+# Emissions Trend Monthly
+# ---------------------------
+st.subheader("📈 Emissions Trend Over Time (Monthly)")
+if not df_log.empty:
+    df_log["Timestamp"] = pd.to_datetime(df_log["Timestamp"], errors="coerce")
+    df_log = df_log.dropna(subset=["Timestamp"])
+    df_cycle = df_log[(df_log["Timestamp"].dt.date>=cycle_start) & (df_log["Timestamp"].dt.date<=cycle_end)].copy()
+    if df_cycle.empty:
+        st.info("No entries in the current Apr–Mar cycle yet.")
+    else:
+        df_cycle["MonthLabel"] = pd.Categorical(df_cycle["Timestamp"].dt.strftime("%b"), categories=MONTH_ORDER, ordered=True)
+        stacked = df_cycle.groupby(["MonthLabel","Scope"])["Emissions (tCO₂e)"].sum().reset_index()
+        pivot = stacked.pivot(index="MonthLabel", columns="Scope", values="Emissions (tCO₂e)").reindex(MONTH_ORDER).fillna(0).reset_index()
+        melt = pivot.melt(id_vars=["MonthLabel"], var_name="Scope", value_name="Emissions (tCO₂e)")
+        fig_bar = px.bar(melt, x="MonthLabel", y="Emissions (tCO₂e)", color="Scope",
+                         color_discrete_map=SCOPE_COLORS, barmode="stack", template="plotly_dark")
+        fig_bar.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3", xaxis_title="", yaxis_title="Emissions (tCO₂e)")
+        st.plotly_chart(fig_bar, use_container_width=True)
+
+# ---------------------------
+# Emissions Log
+# ---------------------------
+st.subheader("📜 Emissions Log")
+if st.session_state.emissions_log:
+    log_df = pd.DataFrame(st.session_state.emissions_log).sort_values("Timestamp",ascending=False).reset_index(drop=True)
+    st.dataframe(log_df,use_container_width=True)
+    st.download_button("📥 Download Current Log (CSV)", log_df.to_csv(index=False), "emissions_log_current.csv", "text/csv")
+else:
+    st.info("No emission log data yet. Add entries from the sidebar.")

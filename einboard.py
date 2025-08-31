@@ -24,7 +24,7 @@ st.markdown("""
 # Utilities
 # ---------------------------
 MONTH_ORDER = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"]
-SCOPE_COLORS = {"Scope 1":"#1E3A8A","Scope 2":"#84CC16","Scope 3":"#FACC15"}
+SCOPE_COLORS = {"Scope 1":"#1E3A8A","Scope 2":"#84CC16","Scope 3":"#FACC15"}  # sustainability colors
 ACTUAL_COLOR = {"Scope 1":"#1E3A8A","Scope 2":"#84CC16","Scope 3":"#FACC15"}
 FORECAST_COLOR = {"Scope 1":"#60A5FA","Scope 2":"#D9F99D","Scope 3":"#FEF08A"}
 
@@ -175,58 +175,56 @@ else:
 # ---------------------------
 # Pie chart: Emission Breakdown by Scope
 # ---------------------------
-pie_df = pd.DataFrame([{"Scope":"Scope 1","Emissions (tCO₂e)":s1},
-                       {"Scope":"Scope 2","Emissions (tCO₂e)":s2},
-                       {"Scope":"Scope 3","Emissions (tCO₂e)":s3}])
+pie_df = pd.DataFrame([
+    {"Scope":"Scope 1","Emissions (tCO₂e)":s1},
+    {"Scope":"Scope 2","Emissions (tCO₂e)":s2},
+    {"Scope":"Scope 3","Emissions (tCO₂e)":s3}
+])
 fig_pie = px.pie(pie_df, names="Scope", values="Emissions (tCO₂e)", hole=0.45,
-                 color="Scope", color_discrete_map=SCOPE_COLORS,
-                 template="plotly_dark",
-                 hover_data={"Emissions (tCO₂e)":":,.2f"})
+                 color="Scope", color_discrete_map=SCOPE_COLORS, template="plotly_dark")
 fig_pie.update_traces(textinfo='percent+label', hovertemplate="%{label}: %{value:,.2f} tCO₂e")
+st.subheader("🧩 Emission Breakdown by Scope")
 st.plotly_chart(fig_pie, use_container_width=True)
 
 # ---------------------------
 # Stacked Bar: Emissions Trend (Monthly)
 # ---------------------------
 if not df.empty:
-    df["Month"] = pd.to_datetime(df["Timestamp"]).dt.month_name().str[:3]
-    monthly_df = df.groupby(["Month","Scope"],as_index=False)["Emissions (tCO₂e)"].sum()
+    df["MonthLabel"] = pd.Categorical(pd.to_datetime(df["Timestamp"]).dt.strftime("%b"), categories=MONTH_ORDER, ordered=True)
+    stacked = df.groupby(["MonthLabel","Scope"])["Emissions (tCO₂e)"].sum().reset_index()
+    # ensure all scopes in all months
+    all_rows = []
     for m in MONTH_ORDER:
-        if m not in monthly_df["Month"].unique():
-            for sc in ["Scope 1","Scope 2","Scope 3"]:
-                monthly_df = pd.concat([monthly_df, pd.DataFrame([{"Month":m,"Scope":sc,"Emissions (tCO₂e)":0.0}])],ignore_index=True)
-    monthly_df["Month"] = pd.Categorical(monthly_df["Month"], categories=MONTH_ORDER, ordered=True)
-    monthly_df = monthly_df.sort_values("Month")
-    fig_bar = px.bar(monthly_df, x="Month", y="Emissions (tCO₂e)", color="Scope",
-                     color_discrete_map=SCOPE_COLORS, template="plotly_dark",
-                     text_auto=False, hover_data={"Emissions (tCO₂e)":":,.2f"})
-    fig_bar.update_layout(barmode='stack')
-    st.plotly_chart(fig_bar, use_container_width=True)
+        for sc in ["Scope 1","Scope 2","Scope 3"]:
+            val = stacked[(stacked["MonthLabel"]==m) & (stacked["Scope"]==sc)]["Emissions (tCO₂e)"].sum()
+            all_rows.append({"MonthLabel":m,"Scope":sc,"Emissions (tCO₂e)":val})
+    stacked = pd.DataFrame(all_rows)
+    fig_bar = px.bar(stacked, x="MonthLabel", y="Emissions (tCO₂e)", color="Scope",
+                     color_discrete_map=SCOPE_COLORS, barmode="stack", template="plotly_dark")
+    st.subheader("📈 Emissions Trend Over Time (Monthly)")
+    st.plotly_chart(fig_bar,use_container_width=True)
 
 # ---------------------------
-# Actual vs Forecast (per Scope)
+# Actual vs Forecast per Scope
 # ---------------------------
 forecast_df = pd.DataFrame({"Month":MONTH_ORDER})
 for sc in ["Scope 1","Scope 2","Scope 3"]:
-    forecast_df[f"{sc}_forecast"] = 0.0 if sc not in df["Scope"].unique() else df[df["Scope"]==sc].groupby(df["Month"])["Emissions (tCO₂e)"].sum().reindex(MONTH_ORDER, fill_value=0).values
+    monthly_actual = df[df["Scope"]==sc].groupby("MonthLabel")["Emissions (tCO₂e)"].sum().reindex(MONTH_ORDER,fill_value=0)
+    forecast_df[f"{sc}_forecast"] = monthly_actual.values
 fig_line = px.line(template="plotly_dark")
 for sc in ["Scope 1","Scope 2","Scope 3"]:
-    # Actual
-    if sc in df["Scope"].unique():
-        actual = df[df["Scope"]==sc].groupby(df["Month"])["Emissions (tCO₂e)"].sum().reindex(MONTH_ORDER, fill_value=0)
-    else:
-        actual = pd.Series([0]*len(MONTH_ORDER), index=MONTH_ORDER)
-    fig_line.add_scatter(x=MONTH_ORDER, y=actual.values, mode='lines+markers',
-                         name=f"{sc} Actual", line=dict(color=ACTUAL_COLOR[sc], width=3))
-    # Forecast
+    actual = df[df["Scope"]==sc].groupby("MonthLabel")["Emissions (tCO₂e)"].sum().reindex(MONTH_ORDER,fill_value=0)
+    fig_line.add_scatter(x=MONTH_ORDER, y=actual.values, mode='lines+markers', name=f"{sc} Actual", line=dict(color=ACTUAL_COLOR[sc], width=3))
     forecast = forecast_df[f"{sc}_forecast"]
-    fig_line.add_scatter(x=MONTH_ORDER, y=forecast.values, mode='lines+markers',
-                         name=f"{sc} Forecast", line=dict(color=FORECAST_COLOR[sc], width=3, dash='dot'))
+    fig_line.add_scatter(x=MONTH_ORDER, y=forecast.values, mode='lines+markers', name=f"{sc} Forecast", line=dict(color=FORECAST_COLOR[sc], width=3, dash='dot'))
 fig_line.update_layout(yaxis_title="Emissions (tCO₂e)")
-st.plotly_chart(fig_line, use_container_width=True)
+st.subheader("📊 Actual vs Forecast per Scope")
+st.plotly_chart(fig_line,use_container_width=True)
 
 # ---------------------------
 # Emissions Log
 # ---------------------------
-st.subheader("Emissions Log")
-st.dataframe(df)
+st.subheader("📜 Emissions Log")
+st.dataframe(df,use_container_width=True)
+if not df.empty:
+    st.download_button("📥 Download Current Log (CSV)", data=df.to_csv(index=False), file_name="emissions_log_current.csv", mime="text/csv")

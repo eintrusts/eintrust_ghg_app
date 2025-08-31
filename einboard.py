@@ -51,68 +51,58 @@ def format_indian(n: float) -> str:
     return ("-" if x < 0 else "") + res
 
 # ---------------------------
-# Sidebar & Navigation (dynamic)
+# Sidebar & Navigation
 # ---------------------------
 if "page" not in st.session_state:
     st.session_state.page = "Home"
 
-# Page structure for dynamic generation
-sidebar_structure = {
-    "Home": [],
-    "Environment": ["GHG","Energy","Water","Waste","Biodiversity"],
-    "Social": ["Employee","Health & Safety","CSR"],
-    "Governance": ["Board","Policies","Compliance","Risk Management"]
-}
-
-def render_sidebar(structure):
-    st.image("https://github.com/eintrusts/eintrust_ghg_app/blob/main/EinTrust%20%20(2).png?raw=true", use_container_width=True)
-    st.markdown("---")
-    for section, pages in structure.items():
-        if section != "Home":
-            exp = st.expander(section, expanded=(section=="Environment"))
-            with exp:
-                for page_name in pages:
-                    active = st.session_state.page == page_name
-                    if st.button(page_name, key=page_name):
-                        st.session_state.page = page_name
-                        st.experimental_rerun()
-                    st.markdown(f"""
-                    <style>
-                    div.stButton > button[key="{page_name}"] {{
-                        all: unset; cursor: pointer; padding: 0.4rem; text-align: left;
-                        border-radius: 0.3rem; margin-bottom: 0.2rem;
-                        background-color: {'forestgreen' if active else '#12131a'};
-                        color: {'white' if active else '#e6edf3'};
-                        font-size: 16px;
-                    }}
-                    div.stButton > button[key="{page_name}"]:hover {{
-                        background-color: {'forestgreen' if active else '#1a1b22'};
-                    }}
-                    </style>
-                    """, unsafe_allow_html=True)
-    # Home button separately on top
-    active = st.session_state.page == "Home"
-    if st.button("Home", key="Home"):
-        st.session_state.page = "Home"
+def sidebar_button(label):
+    active = st.session_state.page == label
+    if st.button(label, key=label):
+        st.session_state.page = label
         st.experimental_rerun()
     st.markdown(f"""
     <style>
-    div.stButton > button[key="Home"] {{
+    div.stButton > button[key="{label}"] {{
         all: unset; cursor: pointer; padding: 0.4rem; text-align: left;
         border-radius: 0.3rem; margin-bottom: 0.2rem;
         background-color: {'forestgreen' if active else '#12131a'};
         color: {'white' if active else '#e6edf3'};
         font-size: 16px;
     }}
-    div.stButton > button[key="Home"]:hover {{
+    div.stButton > button[key="{label}"]:hover {{
         background-color: {'forestgreen' if active else '#1a1b22'};
     }}
     </style>
     """, unsafe_allow_html=True)
 
-# Render sidebar dynamically
 with st.sidebar:
-    render_sidebar(sidebar_structure)
+    st.image("https://github.com/eintrusts/eintrust_ghg_app/blob/main/EinTrust%20%20(2).png?raw=true", use_container_width=True)
+    st.markdown("---")
+    
+    # Home button on top
+    sidebar_button("Home")
+
+    env_exp = st.expander("Environment", expanded=True)
+    with env_exp:
+        sidebar_button("GHG")
+        sidebar_button("Energy")
+        sidebar_button("Water")
+        sidebar_button("Waste")
+        sidebar_button("Biodiversity")
+
+    social_exp = st.expander("Social", expanded=False)
+    with social_exp:
+        sidebar_button("Employee")
+        sidebar_button("Health & Safety")
+        sidebar_button("CSR")
+
+    gov_exp = st.expander("Governance", expanded=False)
+    with gov_exp:
+        sidebar_button("Board")
+        sidebar_button("Policies")
+        sidebar_button("Compliance")
+        sidebar_button("Risk Management")
 
 # ---------------------------
 # Initialize Data
@@ -139,9 +129,44 @@ SCOPE_COLORS = {"Scope 1": "#81c784", "Scope 2": "#4db6ac", "Scope 3": "#aed581"
 ENERGY_COLORS = {"Fossil": "#f39c12", "Renewable": "#2ecc71"}
 
 # ---------------------------
-# GHG & Energy dashboard functions
-# (Keep all previous logic for calculate_kpis(), render_ghg_dashboard(), render_energy_dashboard() here exactly as before)
+# GHG Dashboard Functions
 # ---------------------------
+def calculate_kpis():
+    df = st.session_state.entries
+    summary = {"Scope 1": 0.0, "Scope 2": 0.0, "Scope 3": 0.0, "Total Quantity": 0.0, "Unit": "tCO₂e"}
+    if not df.empty:
+        for scope in ["Scope 1","Scope 2","Scope 3"]:
+            summary[scope] = df[df["Scope"]==scope]["Quantity"].sum()
+        summary["Total Quantity"] = df["Quantity"].sum()
+    return summary
+
+def render_ghg_dashboard(include_data=True, show_chart=True):
+    # (Keep full code exactly as in your original for this function)
+    st.subheader("GHG Emissions")
+    kpis = calculate_kpis()
+    c1, c2, c3, c4 = st.columns(4)
+    for col, label, value, color in zip(
+        [c1, c2, c3, c4], 
+        ["Total Quantity", "Scope 1", "Scope 2", "Scope 3"],
+        [kpis['Total Quantity'], kpis['Scope 1'], kpis['Scope 2'], kpis['Scope 3']],
+        ["#ffffff", SCOPE_COLORS['Scope 1'], SCOPE_COLORS['Scope 2'], SCOPE_COLORS['Scope 3']]
+    ):
+        col.markdown(f"""
+        <div class='kpi'>
+            <div class='kpi-value' style='color:{color}'>{format_indian(value)}</div>
+            <div class='kpi-unit'>{kpis['Unit']}</div>
+            <div class='kpi-label'>{label.lower()}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    # (Include all GHG input, table, chart logic exactly as in your original code)
+
+# ---------------------------
+# Energy Dashboard Functions
+# ---------------------------
+def render_energy_dashboard(include_input=True, show_chart=True):
+    # (Keep full code exactly as in your original for this function)
+    st.subheader("Energy")
+    # (Include all logic for Energy KPIs, monthly trend, renewable entry form)
 
 # ---------------------------
 # Render Pages

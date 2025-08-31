@@ -1,93 +1,122 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+from datetime import datetime
 
 # --- Page Config ---
-st.set_page_config(page_title="EinTrust ESG Dashboard", page_icon="🌍", layout="wide")
+st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout="wide")
 
-# --- Sidebar Tabs ---
-tab = st.sidebar.radio("Navigation", ["Input Data", "Dashboard"])
+# --- Custom Styling ---
+st.markdown("""
+    <style>
+        /* Global Background */
+        body, .stApp {
+            background-color: #0f1f1f; /* Dark teal for energy-saving mode */
+            color: #e0f2f1; /* Light text for readability */
+            font-family: 'Helvetica', sans-serif;
+        }
 
-# --- Load Emission Factors ---
-try:
-    emission_factors = pd.read_csv("emission_factors.csv")
-except:
-    st.error("⚠️ emission_factors.csv not found. Please upload it.")
+        /* Sidebar */
+        section[data-testid="stSidebar"] {
+            background-color: #163020; /* Forest green sidebar */
+            color: #e0f2f1;
+        }
 
-# --- Data Store in Session ---
-if "ghg_data" not in st.session_state:
-    st.session_state.ghg_data = pd.DataFrame(columns=["Category", "Activity", "Amount", "Unit", "Scope", "Emissions (tCO2e)"])
+        section[data-testid="stSidebar"] * {
+            color: #e0f2f1 !important;
+        }
 
-# --- Input Data Tab ---
-if tab == "Input Data":
-    st.title("🌍 Input GHG Activity Data")
+        /* Titles */
+        h1, h2, h3, h4 {
+            color: #6EC207 !important; /* Fresh Green */
+        }
 
-    with st.form("ghg_form"):
-        category = st.selectbox("Select Category", ["Fuel", "Electricity", "Travel"])
-        activity = st.text_input("Activity Name (e.g., Diesel, Grid Electricity, Flight)")
-        amount = st.number_input("Amount Consumed", min_value=0.0, step=0.1)
-        unit = st.text_input("Unit (e.g., Litre, kWh, km)")
-        scope = st.selectbox("Scope", ["Scope 1", "Scope 2", "Scope 3"])
+        /* Metric cards */
+        div[data-testid="stMetricValue"] {
+            color: #6EC207 !important; /* Green metrics */
+            font-weight: bold;
+        }
 
-        # Lookup emission factor
-        ef = 0
-        if "emission_factors" in locals():
-            match = emission_factors[emission_factors["Activity"].str.lower() == activity.lower()]
-            if not match.empty:
-                ef = match["EF"].values[0]  # Emission factor
-        emissions = amount * ef
+        /* Buttons */
+        .stButton>button {
+            background-color: #1E3D59;
+            color: white;
+            border-radius: 8px;
+            border: none;
+        }
+        .stButton>button:hover {
+            background-color: #163020;
+            color: #6EC207;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
-        submitted = st.form_submit_button("Add Entry")
+# --- Sidebar Logo ---
+st.sidebar.image("https://avatars.githubusercontent.com/u/181635316?s=200&v=4", use_column_width=True)
 
-        if submitted:
-            new_entry = {
-                "Category": category,
-                "Activity": activity,
-                "Amount": amount,
-                "Unit": unit,
-                "Scope": scope,
-                "Emissions (tCO2e)": emissions
-            }
-            st.session_state.ghg_data = pd.concat([st.session_state.ghg_data, pd.DataFrame([new_entry])], ignore_index=True)
-            st.success("✅ Entry added!")
+# --- Sidebar Navigation ---
+st.sidebar.title("Navigation")
+page = st.sidebar.radio("Go to", ["Dashboard"])
 
-    st.subheader("Current GHG Data")
-    st.dataframe(st.session_state.ghg_data)
+# --- Dashboard Page ---
+if page == "Dashboard":
+    st.title("🌍 EinTrust GHG Dashboard")
+    st.markdown("### Estimate Scope 1, 2, and 3 emissions for your Net Zero journey")
 
-# --- Dashboard Tab ---
-elif tab == "Dashboard":
-    st.title("📊 ESG Dashboard")
+    # --- Input Section ---
+    st.subheader("Activity Input")
+    activity_type = st.selectbox("Select Activity", ["Electricity", "Fuel", "Travel", "Waste"])
+    quantity = st.number_input("Enter Quantity", min_value=0.0, format="%.2f")
+    unit = st.text_input("Unit (e.g., kWh, liters, km, kg)")
+    add_btn = st.button("Add Entry")
 
-    if st.session_state.ghg_data.empty:
-        st.warning("No data yet. Please add activity data in the Input tab.")
+    # --- Session State for Data ---
+    if "data" not in st.session_state:
+        st.session_state.data = pd.DataFrame(columns=["Date", "Activity", "Quantity", "Unit", "Emissions (kgCO2e)"])
+
+    # --- Emission Factors (simplified demo values) ---
+    emission_factors = {
+        "Electricity": 0.82,  # kg CO2e/kWh (India avg)
+        "Fuel": 2.68,        # kg CO2e/liter diesel
+        "Travel": 0.15,      # kg CO2e/km (car avg)
+        "Waste": 1.20        # kg CO2e/kg waste
+    }
+
+    # --- Add Entry ---
+    if add_btn and quantity > 0:
+        emissions = quantity * emission_factors.get(activity_type, 0)
+        new_row = pd.DataFrame({
+            "Date": [datetime.now().strftime("%Y-%m-%d %H:%M")],
+            "Activity": [activity_type],
+            "Quantity": [quantity],
+            "Unit": [unit],
+            "Emissions (kgCO2e)": [round(emissions, 2)]
+        })
+        st.session_state.data = pd.concat([st.session_state.data, new_row], ignore_index=True)
+        st.success("✅ Entry added successfully!")
+
+    # --- Dashboard View ---
+    st.subheader("Emissions Overview")
+
+    if not st.session_state.data.empty:
+        total_emissions = st.session_state.data["Emissions (kgCO2e)"].sum()
+
+        # Metrics
+        col1, col2 = st.columns(2)
+        col1.metric("Total Entries", len(st.session_state.data))
+        col2.metric("Total Emissions", f"{total_emissions:.2f} kgCO2e")
+
+        # Chart
+        fig = px.bar(
+            st.session_state.data,
+            x="Activity", y="Emissions (kgCO2e)",
+            color="Activity",
+            title="Emissions by Activity",
+            template="plotly_dark"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Table
+        st.dataframe(st.session_state.data, use_container_width=True)
     else:
-        df = st.session_state.ghg_data
-
-        # --- KPI cards ---
-        total_emissions = df["Emissions (tCO2e)"].sum()
-        scope1 = df[df["Scope"]=="Scope 1"]["Emissions (tCO2e)"].sum()
-        scope2 = df[df["Scope"]=="Scope 2"]["Emissions (tCO2e)"].sum()
-        scope3 = df[df["Scope"]=="Scope 3"]["Emissions (tCO2e)"].sum()
-
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Total Emissions", f"{total_emissions:.2f} tCO2e")
-        col2.metric("Scope 1", f"{scope1:.2f} tCO2e")
-        col3.metric("Scope 2", f"{scope2:.2f} tCO2e")
-        col4.metric("Scope 3", f"{scope3:.2f} tCO2e")
-
-        # --- Pie chart: Scope breakdown ---
-        scope_summary = df.groupby("Scope")["Emissions (tCO2e)"].sum().reset_index()
-        fig1 = px.pie(scope_summary, values="Emissions (tCO2e)", names="Scope", title="GHG Emissions by Scope")
-        st.plotly_chart(fig1, use_container_width=True)
-
-        # --- Bar chart: Category emissions ---
-        category_summary = df.groupby("Category")["Emissions (tCO2e)"].sum().reset_index()
-        fig2 = px.bar(category_summary, x="Category", y="Emissions (tCO2e)", title="Emissions by Category", text_auto=True)
-        st.plotly_chart(fig2, use_container_width=True)
-
-        # --- Placeholder for ESG Metrics ---
-        st.subheader("🌱 ESG Metrics (Summary)")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Energy Consumed", "Coming Soon")
-        col2.metric("Water Usage", "Coming Soon")
-        col3.metric("CSR Spend", "Coming Soon")
+        st.info("No activity added yet. Start by entering your first activity above.")

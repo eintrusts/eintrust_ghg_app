@@ -101,6 +101,8 @@ with st.sidebar:
 # ---------------------------
 if "entries" not in st.session_state:
     st.session_state.entries = pd.DataFrame(columns=["Scope","Activity","Sub-Activity","Specific Item","Quantity","Unit"])
+if "renewable_entries" not in st.session_state:
+    st.session_state.renewable_entries = pd.DataFrame(columns=["Source","Location","Month","Energy_kWh","CO2e_kg","Type"])
 
 # ---------------------------
 # GHG Dashboard
@@ -165,7 +167,7 @@ def render_ghg_dashboard(include_data=True):
         quantity = st.number_input(f"Enter quantity ({unit})", min_value=0.0, format="%.2f")
         uploaded_file = st.file_uploader("Upload CSV/XLS/XLSX/PDF for cross verification (optional)", type=["csv","xls","xlsx","pdf"])
 
-        if st.button("Add entry"):
+        if st.button("Add GHG Entry"):
             new_entry = {
                 "Scope": scope,
                 "Activity": activity,
@@ -175,7 +177,7 @@ def render_ghg_dashboard(include_data=True):
                 "Unit": unit
             }
             st.session_state.entries = pd.concat([st.session_state.entries, pd.DataFrame([new_entry])], ignore_index=True)
-            st.success("Entry added successfully!")
+            st.success("GHG entry added successfully!")
             st.experimental_rerun()
 
         if not st.session_state.entries.empty:
@@ -190,7 +192,7 @@ def render_ghg_dashboard(include_data=True):
 # Energy Dashboard
 # ---------------------------
 def render_energy_dashboard(include_input=True):
-    st.subheader("⚡ Energy & CO₂e Dashboard (Financial Year Apr→Mar)")
+    st.subheader("⚡ Energy & CO₂e Dashboard (Apr→Mar)")
     
     calorific_values = {"Diesel": 35.8,"Petrol": 34.2,"LPG":46.1,"CNG":48,"Coal":24,"Biomass":15}
     emission_factors = {"Diesel":2.68,"Petrol":2.31,"LPG":1.51,"CNG":2.02,"Coal":2.42,"Biomass":0.0,
@@ -199,29 +201,26 @@ def render_energy_dashboard(include_input=True):
     COLOR_PALETTE = {"Fossil": "#f39c12", "Renewable": "#2ecc71"}  # unified color palette
 
     # Scope 1 & 2 data
-    if not st.session_state.entries.empty:
-        df = st.session_state.entries.copy()
-        scope1_2_data = df[df["Scope"].isin(["Scope 1","Scope 2"])].copy()
-        if not scope1_2_data.empty:
-            def compute_energy(row):
-                fuel = row["Sub-Activity"]
-                qty = row["Quantity"]
-                if fuel=="Grid Electricity":
-                    energy_kwh = qty
-                else:
-                    energy_kwh = (qty * calorific_values.get(fuel,0))/3.6
-                co2e = qty * emission_factors.get(fuel,0)
-                return pd.Series([energy_kwh, co2e])
-            scope1_2_data[["Energy_kWh","CO2e_kg"]] = scope1_2_data.apply(compute_energy, axis=1)
-            scope1_2_data["Type"]="Fossil"
-    else:
-        scope1_2_data = pd.DataFrame(columns=["Type","Energy_kWh","CO2e_kg","Month"])
+    df = st.session_state.entries
+    scope1_2_data = df[df["Scope"].isin(["Scope 1","Scope 2"])].copy() if not df.empty else pd.DataFrame()
+    if not scope1_2_data.empty:
+        def compute_energy(row):
+            fuel = row["Sub-Activity"]
+            qty = row["Quantity"]
+            if fuel=="Grid Electricity":
+                energy_kwh = qty
+            else:
+                energy_kwh = (qty * calorific_values.get(fuel,0))/3.6
+            co2e = qty * emission_factors.get(fuel,0)
+            return pd.Series([energy_kwh, co2e])
+        scope1_2_data[["Energy_kWh","CO2e_kg"]] = scope1_2_data.apply(compute_energy, axis=1)
+        scope1_2_data["Type"]="Fossil"
+    scope1_2_data["Month"] = np.random.choice(months, len(scope1_2_data)) if not scope1_2_data.empty else []
 
-    # Renewable data frame placeholder
-    renewable_df = pd.DataFrame()
-
+    # Combine with stored renewable entries
+    all_energy = pd.concat([scope1_2_data.rename(columns={"Sub-Activity":"Fuel"}), st.session_state.renewable_entries], ignore_index=True)
+    
     # KPI calculation
-    all_energy = pd.concat([scope1_2_data.rename(columns={"Sub-Activity":"Fuel"}), renewable_df], ignore_index=True)
     total_energy = all_energy.groupby("Type")["Energy_kWh"].sum().to_dict() if not all_energy.empty else {}
     total_co2e = all_energy.groupby("Type")["CO2e_kg"].sum().to_dict() if not all_energy.empty else {}
     fossil_energy = total_energy.get("Fossil",0)
@@ -257,25 +256,37 @@ def render_energy_dashboard(include_input=True):
                        color_discrete_map=COLOR_PALETTE, markers=True)
         st.plotly_chart(fig1, use_container_width=True)
 
-    # Renewable Energy Entry Form (below dashboard)
+    # Renewable Energy Input Form
     if include_input:
         st.subheader("Add Renewable Energy Entry")
         num_entries = st.number_input("Number of renewable energy entries to add", min_value=1, max_value=20, value=1)
         renewable_list = []
         for i in range(int(num_entries)):
             col1, col2, col3 = st.columns([2,3,3])
-            with col1:
-                source = st.selectbox(f"Source {i+1}", ["Solar","Wind","Biogas","Purchased Green Energy"], key=f"src{i}")
-            with col2:
-                location = st.text_input(f"Location {i+1}", "", key=f"loc{i}")
-            with col3:
-                annual_energy = st.number_input(f"Annual Energy kWh {i+1}", min_value=0.0, key=f"annual_{i}")
+            with col1: source = st.selectbox(f"Source {i+1}", ["Solar","Wind","Biogas","Purchased Green Energy"], key=f"src{i}")
+            with col2: location = st.text_input(f"Location {i+1}", "", key=f"loc{i}")
+            with col3: annual_energy = st.number_input(f"Annual Energy kWh {i+1}", min_value=0.0, key=f"annual_{i}")
             monthly_energy = annual_energy / 12
             for m in months:
                 renewable_list.append({"Source": source,"Location": location,"Month": m,
                                        "Energy_kWh": monthly_energy,"Type":"Renewable",
                                        "CO2e_kg": monthly_energy*emission_factors.get(source,0)})
-        if renewable_list:
-            renewable_df = pd.DataFrame(renewable_list)
-            if st.button("Add Renewable Energy Entries"):
-                st.success(f"{len(renewable_df)} renewable energy entries added (not yet saved permanently).")
+        if renewable_list and st.button("Add Renewable Energy Entries"):
+            new_entries_df = pd.DataFrame(renewable_list)
+            st.session_state.renewable_entries = pd.concat([st.session_state.renewable_entries, new_entries_df], ignore_index=True)
+            st.success(f"{len(new_entries_df)} renewable entries added!")
+
+# ---------------------------
+# Render Pages
+# ---------------------------
+if st.session_state.page == "Home":
+    st.title("🌍 Welcome to EinTrust Dashboard")
+    render_ghg_dashboard(include_data=False)
+    render_energy_dashboard(include_input=False)
+elif st.session_state.page == "GHG":
+    render_ghg_dashboard(include_data=True)
+elif st.session_state.page == "Energy":
+    render_energy_dashboard(include_input=True)
+else:
+    st.subheader(f"{st.session_state.page} section")
+    st.info("This section is under development. Please select other pages from sidebar.")

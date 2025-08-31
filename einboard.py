@@ -9,23 +9,21 @@ from io import BytesIO
 # --- Page Config ---
 st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout="wide")
 
-# --- Custom CSS for Professional Theme ---
+# --- Custom CSS for Dark Energy-Saving Theme ---
 st.markdown("""
 <style>
-/* Main app background */
+/* Main App Dark Background */
 .stApp {
-    background-color: #fdfcf6;
+    background-color: #121212;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    color: #228B22;
+    color: #d3d3d3;
 }
 
-/* Sidebar full customization */
+/* Sidebar */
 [data-testid="stSidebar"] {
-    background-color: #f5f5f0;
+    background-color: #1a1a1a;
     color: #228B22;
 }
-
-/* Sidebar text */
 [data-testid="stSidebar"] * {
     color: #228B22;
 }
@@ -38,8 +36,7 @@ h1, h2, h3, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
 
 /* Normal text */
 .stText, .stMarkdown p, .stTextInput>div>div>input, .stNumberInput>div>div>input, .stSelectbox>div>div>div>div {
-    color: #228B22;
-    font-weight: 500;
+    color: #d3d3d3;
 }
 
 /* Buttons */
@@ -55,18 +52,22 @@ h1, h2, h3, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
     color: white;
 }
 
-/* Dataframe styling */
-.stDataFrame>div>div>div>div {
-    color: #228B22;
-    font-weight: 500;
+/* Card Container */
+.card {
+    background-color: #1f1f1f;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.5);
 }
 
-/* Card-like container for latest entry */
-.latest-entry {
-    background-color: #eaf4fc;
-    padding: 15px;
-    border-radius: 8px;
-    border-left: 5px solid #4169E1;
+/* Dataframe text */
+.stDataFrame>div>div>div>div {
+    color: #d3d3d3;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -84,7 +85,7 @@ try:
 except Exception as e:
     st.sidebar.write("Logo not available:", e)
 
-# --- Sidebar: Dashboard Input ---
+# --- Sidebar: Activity Input ---
 st.sidebar.header("➕ Add Activity Data")
 add_mode = st.sidebar.checkbox("Add Entry Mode", value=False)
 
@@ -156,7 +157,7 @@ with col1:
     st.subheader("📅 Latest Emission Entry")
     if st.session_state.emissions_log:
         latest = st.session_state.emissions_log[-1]
-        st.markdown("<div class='latest-entry'>", unsafe_allow_html=True)
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
         for k,v in latest.items():
             st.markdown(f"**{k}:** {v}")
         st.markdown("</div>", unsafe_allow_html=True)
@@ -174,7 +175,9 @@ with col2:
         fig = px.pie(chart_df, names="Scope", values="Emissions",
                      color="Scope", color_discrete_sequence=colors, hole=0.45)
         fig.update_traces(textinfo='percent+label', textfont_size=14)
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
         st.plotly_chart(fig, use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
     else:
         st.info("No data to show chart.")
 

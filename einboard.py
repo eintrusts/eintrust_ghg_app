@@ -21,23 +21,15 @@ st.markdown(
       .kpi-label { font-size: 12px; color: #cfd8dc; }
       .stDataFrame { color: #e6edf3; }
       .sidebar .stButton>button { background:#198754; color:white }
-      .sidebar .css-1d391kg img { max-width:100%; height:auto; display:block; margin-left:auto; margin-right:auto; }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 # ---------------------------
-# Logo in sidebar
+# Sidebar Logo (Previous working method)
 # ---------------------------
-st.sidebar.markdown("## ")
-logo_url = "https://raw.githubusercontent.com/eintrusts/eintrust/main/profile_photo.png"  # Replace with your repo raw URL
-try:
-    response = requests.get(logo_url)
-    img = Image.open(io.BytesIO(response.content))
-    st.sidebar.image(img, use_column_width=True)
-except:
-    st.sidebar.warning("Logo not loaded. Check URL.")
+st.sidebar.image("https://raw.githubusercontent.com/eintrusts/eintrust/main/profile_photo.png", width=150)
 
 # ---------------------------
 # Utilities
@@ -272,22 +264,19 @@ if not df_log.empty:
     df_log["Timestamp"] = pd.to_datetime(df_log["Timestamp"], errors="coerce")
     df_log = df_log.dropna(subset=["Timestamp"])
     df_cycle = df_log[(df_log["Timestamp"].dt.date>=cycle_start)&(df_log["Timestamp"].dt.date<=cycle_end)].copy()
-    if df_cycle.empty:
-        st.info("No entries in current Apr–Mar cycle.")
-    else:
-        df_cycle["MonthLabel"] = df_cycle["Timestamp"].dt.strftime("%b")
-        df_cycle["MonthLabel"] = pd.Categorical(df_cycle["MonthLabel"],categories=MONTH_ORDER,ordered=True)
+    if not df_cycle.empty:
+        df_cycle["MonthLabel"] = pd.Categorical(df_cycle["Timestamp"].dt.strftime("%b"),categories=MONTH_ORDER,ordered=True)
         stacked = df_cycle.groupby(["MonthLabel","Scope"])["Emissions (tCO₂e)"].sum().reset_index()
-        all_months = pd.DataFrame({"MonthLabel":MONTH_ORDER})
-        pivot = stacked.pivot(index="MonthLabel",columns="Scope",values="Emissions (tCO₂e)").reindex(MONTH_ORDER).fillna(0)
-        pivot = pivot.reset_index()
-        melt = pivot.melt(id_vars=["MonthLabel"], var_name="Scope", value_name="Emissions (tCO₂e)")
-        fig_bar = px.bar(melt, x="MonthLabel", y="Emissions (tCO₂e)", color="Scope", color_discrete_map=color_map, barmode="stack", template="plotly_dark")
+        all_combinations = pd.MultiIndex.from_product([MONTH_ORDER, ["Scope 1","Scope 2","Scope 3"]], names=["MonthLabel","Scope"])
+        stacked = stacked.set_index(["MonthLabel","Scope"]).reindex(all_combinations, fill_value=0).reset_index()
+
+        fig_bar = px.bar(stacked, x="MonthLabel", y="Emissions (tCO₂e)", color="Scope",
+                         color_discrete_map=color_map, barmode="stack", template="plotly_dark")
         fig_bar.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3", xaxis_title="", yaxis_title="Emissions (tCO₂e)")
         st.plotly_chart(fig_bar,use_container_width=True)
 
         # Forecast
-        monthly_total = melt.groupby("MonthLabel")["Emissions (tCO₂e)"].sum().reindex(MONTH_ORDER).fillna(0).reset_index()
+        monthly_total = stacked.groupby("MonthLabel")["Emissions (tCO₂e)"].sum().reindex(MONTH_ORDER).fillna(0).reset_index()
         y = monthly_total["Emissions (tCO₂e)"].values.astype(float)
         x = np.arange(len(y))
         observed = np.where(y>0)[0]

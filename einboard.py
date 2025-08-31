@@ -76,9 +76,12 @@ if "page" not in st.session_state:
     st.session_state.page = "Home"
 
 # ---------------------------
-# Sidebar Navigation
+# Sidebar Navigation with Logo
 # ---------------------------
 with st.sidebar:
+    st.image("https://github.com/eintrusts/eintrust_ghg_app/blob/main/EinTrust%20%20logo.png", use_container_width=True)
+    st.markdown("---")
+    
     if st.button("Home"):
         st.session_state.page = "Home"
 

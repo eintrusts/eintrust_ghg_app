@@ -8,10 +8,8 @@ from office365.sharepoint.client_context import ClientContext
 
 # --- Page Config ---
 st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout="wide")
-st.title("Einboard")
-st.markdown("Estimate Scope 1, 2, and 3 emissions for net zero journey.")
 
-# --- Load Emission Factors ---
+# --- Load Emission Factors (internal use only) ---
 try:
     emission_factors = pd.read_csv("emission_factors.csv")
 except FileNotFoundError:
@@ -26,80 +24,29 @@ if "emissions_summary" not in st.session_state:
 if "emissions_log" not in st.session_state:
     st.session_state.emissions_log = []
 
-# --- Client Login ---
-if st.session_state.user_email is None:
-    st.session_state.user_email = st.text_input("Enter your email to access the dashboard")
-    if st.session_state.user_email:
-        st.success(f"Logged in as {st.session_state.user_email}")
-        st.experimental_rerun()
-
-user_email = st.session_state.user_email
-
 # --- SharePoint Config ---
 SHAREPOINT_URL = "https://eintrusts.sharepoint.com/sites/EinTrust"
-USERNAME = "mrkharat@eintrusts.com"
-PASSWORD = "Kabeer@10"  # store securely (env variable preferred)
-TARGET_FOLDER = "/sites/EinTrust/Documents/General/Organisation/Dashboard/Clients Data"
+USERNAME = "your_service_account@eintrusts.com"
+PASSWORD = "your_password"  # use environment variable in production
+TARGET_FOLDER = "/sites/EinTrust/Shared Documents/ClientData"
 
 ctx = ClientContext(SHAREPOINT_URL).with_credentials(UserCredential(USERNAME, PASSWORD))
 
-# --- Sidebar Navigation ---
-nav_choice = st.sidebar.radio("Navigation", ["Dashboard", "Input CSV"], index=1)
-
-# --- CSV Upload ---
-if nav_choice == "Input CSV":
-    st.header("Upload Activity Data")
-    st.markdown("CSV columns required: Scope, Category, Activity, Quantity")
-    uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
-    if uploaded_file:
-        try:
-            df = pd.read_csv(uploaded_file)
-            required_cols = {"Scope", "Category", "Activity", "Quantity"}
-            if not required_cols.issubset(df.columns):
-                st.error(f"CSV must have columns: {required_cols}")
-            else:
-                for _, row in df.iterrows():
-                    scope = row["Scope"]
-                    category = row.get("Category","-")
-                    activity = row["Activity"]
-                    quantity = float(row["Quantity"])
-
-                    # Filter emission factor
-                    ef_df = emission_factors[(emission_factors["scope"]==scope) & (emission_factors["activity"]==activity)]
-                    if scope=="Scope 3":
-                        ef_df = ef_df[ef_df["category"]==category]
-
-                    if not ef_df.empty:
-                        unit = ef_df["unit"].values[0]
-                        ef = ef_df["emission_factor"].values[0]
-                        emissions = quantity*ef
-                        entry = {
-                            "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            "Scope": scope,
-                            "Category": category,
-                            "Activity": activity,
-                            "Quantity": quantity,
-                            "Unit": unit,
-                            "Emission Factor": ef,
-                            "Emissions (tCO₂e)": emissions
-                        }
-                        st.session_state.emissions_log.append(entry)
-                    else:
-                        st.warning(f"No emission factor found for Activity:{activity}, Scope:{scope}, Category:{category}")
-
-                # Update summary
-                summary = {"Scope 1":0,"Scope 2":0,"Scope 3":0}
-                for e in st.session_state.emissions_log:
-                    summary[e["Scope"]] += e["Emissions (tCO₂e)"]
-                st.session_state.emissions_summary = summary
-                st.success("CSV processed successfully!")
-        except Exception as e:
-            st.error(f"Failed to process CSV: {e}")
-
-# --- Dashboard ---
+# --- LOGIN PAGE ---
+if st.session_state.user_email is None:
+    st.title("EinTrust GHG Dashboard Login")
+    st.markdown("Please login with your email to access your dashboard.")
+    email_input = st.text_input("Enter your email")
+    if st.button("Login") and email_input:
+        st.session_state.user_email = email_input
+        st.experimental_rerun()
 else:
+    st.title("Einboard")
+    st.markdown(f"Welcome **{st.session_state.user_email}**! Estimate Scope 1, 2, and 3 emissions for net zero journey.")
+
+    # --- Sidebar: Add Activity Data ---
     st.sidebar.header("Add Activity Data")
-    add_mode = st.sidebar.checkbox("➕ Add Entry Mode", value=False)
+    add_mode = st.sidebar.checkbox("➕ Add Entry Mode", value=True)
 
     if add_mode:
         scope_options = emission_factors["scope"].dropna().unique()
@@ -150,7 +97,7 @@ else:
             st.session_state.emissions_summary = summary
 
     # --- Dashboard Columns ---
-    col1,col2 = st.columns([1,2])
+    col1, col2 = st.columns([1,2])
 
     with col1:
         st.subheader("📅 Latest Emission Entry")
@@ -159,7 +106,7 @@ else:
             for k,v in latest.items():
                 st.markdown(f"- {k}: {v}")
         else:
-            st.info("No data yet. Add from sidebar or upload CSV.")
+            st.info("No data yet. Add from sidebar.")
 
     with col2:
         st.subheader("📊 Emission Breakdown by Scope")

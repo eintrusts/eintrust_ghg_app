@@ -106,7 +106,7 @@ with st.sidebar:
 # ---------------------------
 # Main Content
 # ---------------------------
-st.title("🌍 EinTrust Dashboard")
+st.title("🌍 EinTrust Sustainability Dashboard")
 
 scope_activities = {
     "Scope 1": {"Stationary Combustion": {"Diesel Generator": "Generator running on diesel",
@@ -133,7 +133,7 @@ def calculate_kpis():
     return summary
 
 def render_ghg_dashboard(include_data=True):
-    st.subheader("🌱 GHG Emissions Dashboard")
+    st.subheader("GHG Emissions Dashboard")
     
     # Update KPIs
     kpis = calculate_kpis()
@@ -181,7 +181,7 @@ def render_ghg_dashboard(include_data=True):
         quantity = st.number_input(f"Enter Quantity ({unit})", min_value=0.0, format="%.2f")
 
         # File upload for cross-verification only
-        st.subheader("Optional: Upload File for Internal Verification")
+        st.subheader("Optional: Upload File")
         uploaded_file = st.file_uploader("Upload CSV/XLS/XLSX/PDF", type=["csv","xls","xlsx","pdf"])
 
         # Add manual entry

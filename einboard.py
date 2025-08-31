@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import os
 
 # ---------------------------
 # Config & Dark Theme CSS
@@ -26,15 +27,6 @@ html, body, [class*="css"] { font-family: 'Roboto', sans-serif; }
 .kpi-unit { font-size: 16px; font-weight: 500; color: #cfd8dc; margin-bottom: 5px; }
 .kpi-label { font-size: 14px; color: #cfd8dc; letter-spacing: 0.5px; }
 .stDataFrame { color: #e6edf3; font-family: 'Roboto', sans-serif; }
-
-.sdg-block {
-    background: linear-gradient(145deg, #12131a, #1a1b22);
-    padding: 15px; border-radius: 12px; text-align: center;
-    margin-bottom: 10px; transition: transform 0.2s, box-shadow 0.2s;
-}
-.sdg-block:hover { transform: scale(1.03); box-shadow: 0 6px 18px rgba(0,0,0,0.5); }
-.sdg-name { font-size: 16px; font-weight: 600; color: #ffffff; margin-bottom: 5px; }
-.sdg-progress { font-size: 14px; color: #cfd8dc; margin-bottom: 5px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -111,6 +103,7 @@ with st.sidebar:
         sidebar_button("Compliance")
         sidebar_button("Risk Management")
     
+    # SDG button **outside Governance expander** so always visible
     st.markdown("---")
     sidebar_button("SDG")
 
@@ -133,15 +126,32 @@ SDG_LIST = [
     "Peace, Justice & Strong Institutions", "Partnerships for the Goals"
 ]
 
+SDG_ICONS = {
+    "No Poverty": "sdg_icons/01_no_poverty.png",
+    "Zero Hunger": "sdg_icons/02_zero_hunger.png",
+    "Good Health & Wellbeing": "sdg_icons/03_good_health_and_wellbeing.png",
+    "Quality Education": "sdg_icons/04_quality_education.png",
+    "Gender Equality": "sdg_icons/05_gender_equality.png",
+    "Clean Water & Sanitation": "sdg_icons/06_clean_water_and_sanitation.png",
+    "Affordable & Clean Energy": "sdg_icons/07_affordable_and_clean_energy.png",
+    "Decent Work & Economic Growth": "sdg_icons/08_decent_work_and_economic_growth.png",
+    "Industry, Innovation & Infrastructure": "sdg_icons/09_industry_innovation_and_infrastructure.png",
+    "Reduced Inequalities": "sdg_icons/10_reduced_inequalities.png",
+    "Sustainable Cities & Communities": "sdg_icons/11_sustainable_cities_and_communities.png",
+    "Responsible Consumption & Production": "sdg_icons/12_responsible_consumption_and_production.png",
+    "Climate Action": "sdg_icons/13_climate_action.png",
+    "Life Below Water": "sdg_icons/14_life_below_water.png",
+    "Life on Land": "sdg_icons/15_life_on_land.png",
+    "Peace, Justice & Strong Institutions": "sdg_icons/16_peace_justice_and_strong_institutions.png",
+    "Partnerships for the Goals": "sdg_icons/17_partnerships_for_the_goals.png"
+}
+
 # ---------------------------
 # SDG Engagement Calculation
 # ---------------------------
 def calculate_sdg_engagement():
-    """
-    Placeholder logic: 
-    Calculates % engagement of company on each SDG based on existing entries.
-    Here, we randomly assign values for demo; replace with actual logic from entries data.
-    """
+    # Placeholder logic for SDG engagement calculation
+    # Replace with actual logic based on your data
     sdg_engagement = {sdg: np.random.uniform(0, 100) for sdg in SDG_LIST}
     return sdg_engagement
 
@@ -150,42 +160,32 @@ def calculate_sdg_engagement():
 # ---------------------------
 def render_sdg_dashboard():
     st.title("Sustainable Development Goals (SDGs)")
-    st.subheader("Company Engagement on All 17 SDGs")
+    st.subheader("All 17 SDGs")
 
     sdg_engagement = calculate_sdg_engagement()
-    cols_per_row = 3
-    for i in range(0, len(SDG_LIST), cols_per_row):
-        cols = st.columns(cols_per_row)
-        for j, sdg in enumerate(SDG_LIST[i:i+cols_per_row]):
-            with cols[j]:
-                progress = sdg_engagement[sdg]
-                st.markdown(f"""
-                <div class='sdg-block'>
-                    <div class='sdg-name'>{sdg}</div>
-                    <div class='sdg-progress'>Engagement: {progress:.2f}%</div>
-                    <progress max="100" value="{progress}" style="width:100%"></progress>
-                </div>
-                """, unsafe_allow_html=True)
 
-# ---------------------------
-# Placeholder functions for GHG and Energy dashboards
-# ---------------------------
-def render_ghg_dashboard():
-    st.subheader("GHG Dashboard (Under Development)")
-
-def render_energy_dashboard():
-    st.subheader("Energy Dashboard (Under Development)")
+    for sdg, icon_path in SDG_ICONS.items():
+        col1, col2 = st.columns([1, 4])
+        with col1:
+            st.image(icon_path, width=50)
+        with col2:
+            st.markdown(f"**{sdg}**")
+            progress = sdg_engagement[sdg]
+            st.progress(progress / 100)
+            st.write(f"Engagement: {progress:.2f}%")
 
 # ---------------------------
 # Render Pages
 # ---------------------------
 if st.session_state.page == "Home":
     st.title("EinTrust Sustainability Dashboard")
-    st.info("Select a section from sidebar to explore.")
+    render_sdg_dashboard()
 elif st.session_state.page == "GHG":
-    render_ghg_dashboard()
+    # Placeholder for GHG dashboard
+    st.subheader("GHG Dashboard")
 elif st.session_state.page == "Energy":
-    render_energy_dashboard()
+    # Placeholder for Energy dashboard
+    st.subheader("Energy Dashboard")
 elif st.session_state.page == "SDG":
     render_sdg_dashboard()
 else:

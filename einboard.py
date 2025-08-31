@@ -12,7 +12,7 @@ st.title("Einboard")
 st.markdown("Estimate Scope 1, 2, and 3 emissions for net zero journey.")
 
 # --- Sidebar: GitHub Profile Photo as Logo ---
-GITHUB_PROFILE_PHOTO_URL = "https://avatars.githubusercontent.com/u/12345678?v=4"  # <-- replace this
+GITHUB_PROFILE_PHOTO_URL = "https://avatars.githubusercontent.com/u/12345678?v=4"  # <-- replace with your URL
 try:
     response = requests.get(GITHUB_PROFILE_PHOTO_URL)
     response.raise_for_status()

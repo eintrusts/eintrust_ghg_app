@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+
 # ---------------------------
 # Config & Dark Theme CSS
 # ---------------------------
@@ -177,7 +178,7 @@ def render_ghg_dashboard(include_data=True):
 # ---------------------------
 # Energy Dashboard
 # ---------------------------
-def render_energy_dashboard(include_input=True):
+def render_energy_dashboard(include_input=True, show_chart=True):
     st.subheader("⚡ Energy & CO₂e Dashboard (Apr→Mar)")
 
     calorific_values = {"Diesel": 35.8,"Petrol": 34.2,"LPG":46.1,"CNG":48,"Coal":24,"Biomass":15}
@@ -224,7 +225,7 @@ def render_energy_dashboard(include_input=True):
         """, unsafe_allow_html=True)
 
     # Monthly trend chart (Energy page only)
-    if not all_energy.empty:
+    if show_chart and not all_energy.empty:
         all_energy["Month"] = pd.Categorical(all_energy.get("Month", months[0]), categories=months, ordered=True)
         monthly_trend = all_energy.groupby(["Month","Type"])["Energy_kWh"].sum().reset_index()
         st.subheader("Monthly Energy Consumption (kWh)")
@@ -258,11 +259,11 @@ def render_energy_dashboard(include_input=True):
 if st.session_state.page == "Home":
     st.title("🌍 Welcome to EinTrust Dashboard")
     render_ghg_dashboard(include_data=False)
-    render_energy_dashboard(include_input=False)
+    render_energy_dashboard(include_input=False, show_chart=False)
 elif st.session_state.page == "GHG":
     render_ghg_dashboard(include_data=True)
 elif st.session_state.page == "Energy":
-    render_energy_dashboard(include_input=True)
+    render_energy_dashboard(include_input=True, show_chart=True)
 else:
     st.subheader(f"{st.session_state.page} section")
     st.info("This section is under development. Please select other pages from sidebar.")

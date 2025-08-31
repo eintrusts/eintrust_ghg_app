@@ -163,6 +163,7 @@ def render_sdg_dashboard():
             sdg_color = SDG_COLORS[idx]
             sdg_number = idx + 1
 
+            # Engagement slider inside the card
             engagement = st.session_state.sdg_engagement.get(sdg_number, 0)
             with cols[c]:
                 st.markdown(f"""

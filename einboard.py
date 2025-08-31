@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime
-import requests
 from PIL import Image
+import requests
 from io import BytesIO
 
 # --- Page Config ---
@@ -11,15 +11,15 @@ st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout
 st.title("Einboard")
 st.markdown("Estimate Scope 1, 2, and 3 emissions for net zero journey.")
 
-# --- Sidebar Logo ---
-logo_url = "https://raw.githubusercontent.com/yourusername/yourrepo/main/eintrust_logo.png"
-
+# --- Sidebar: GitHub Profile Photo as Logo ---
+GITHUB_PROFILE_PHOTO_URL = "https://avatars.githubusercontent.com/u/12345678?v=4"  # <-- replace this
 try:
-    response = requests.get(logo_url)
+    response = requests.get(GITHUB_PROFILE_PHOTO_URL)
+    response.raise_for_status()
     img = Image.open(BytesIO(response.content))
     st.sidebar.image(img, use_container_width=True)
-except:
-    st.sidebar.write("Logo not available")
+except Exception as e:
+    st.sidebar.write("Logo not available:", e)
 
 # --- Load Emission Factors ---
 try:

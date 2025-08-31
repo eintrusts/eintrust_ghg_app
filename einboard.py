@@ -9,7 +9,7 @@ from io import BytesIO
 # --- Page Config ---
 st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout="wide")
 
-# --- Custom CSS for Dark Energy-Saving Theme + Sidebar Cards ---
+# --- Custom CSS for Dark Energy-Saving Theme + Sidebar Cards + Glowing Active Tab ---
 st.markdown("""
 <style>
 /* Main App Dark Background */
@@ -35,7 +35,7 @@ st.markdown("""
     margin-bottom: 10px;
     text-align: center;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
 }
 .sidebar-button:hover {
     background-color: #228B22;
@@ -44,6 +44,14 @@ st.markdown("""
 .sidebar-button.active {
     background-color: #4169E1;
     color: white;
+    box-shadow: 0 0 15px #4169E1;
+    animation: glow 1.5s infinite alternate;
+}
+
+/* Glowing animation */
+@keyframes glow {
+    from { box-shadow: 0 0 10px #4169E1; }
+    to { box-shadow: 0 0 25px #4169E1; }
 }
 
 /* Headings */
@@ -112,8 +120,8 @@ try:
 except Exception as e:
     st.sidebar.write("Logo not available:", e)
 
-# --- Sidebar Tabs ---
-tab = st.sidebar.radio("Navigation", ["Dashboard", "Profile"])
+# --- Sidebar Tabs as Buttons ---
+tab = st.sidebar.radio("Navigation", ["Dashboard", "Profile"], index=0)
 
 # --- Session State ---
 if "emissions_summary" not in st.session_state:
@@ -128,9 +136,9 @@ except FileNotFoundError:
     emission_factors = pd.DataFrame(columns=["scope","category","activity","unit","emission_factor"])
     st.warning("Emission factors file not found. Dashboard will work, but no emissions can be calculated.")
 
-# --- Main: Profile Tab ---
+# --- Profile Tab ---
 if tab == "Profile":
-    st.title("🏢 Company Profile")
+    st.title("EinTrust GHG Dashboard - Company Profile")
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     company_name = st.text_input("Company Name", value="EinTrust", disabled=True)
     username = st.text_input("Username", value="eintrusts", disabled=True)
@@ -138,16 +146,13 @@ if tab == "Profile":
     if photo_file:
         img_profile = Image.open(photo_file)
         st.image(img_profile, width=200)
-    # Editable fields
-    responsible_person = st.text_input("Responsible Person Name")
-    contact = st.text_input("Responsible Person Contact")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Main: Dashboard Tab ---
+# --- Dashboard Tab ---
 else:
-    st.title("Einboard - Dashboard")
+    st.title("EinTrust GHG Dashboard")
 
-    # --- Sidebar: Activity Input ---
+    # Sidebar Activity Input
     st.sidebar.header("➕ Add Activity Data")
     add_mode = st.sidebar.checkbox("Add Entry Mode", value=False)
     if add_mode and not emission_factors.empty:
@@ -195,10 +200,10 @@ else:
                 summary[e["Scope"]] += e["Emissions (tCO₂e)"]
             st.session_state.emissions_summary = summary
 
-    # --- Dashboard Layout ---
+    # Dashboard Layout
     col1, col2 = st.columns([1,2])
 
-    # Latest Entry Card
+    # Latest Entry
     with col1:
         st.subheader("📅 Latest Emission Entry")
         if st.session_state.emissions_log:
@@ -210,7 +215,7 @@ else:
         else:
             st.info("No data yet. Add from sidebar.")
 
-    # Emission Pie Chart Card
+    # Pie Chart
     with col2:
         st.subheader("📊 Emission Breakdown by Scope")
         chart_df = pd.DataFrame.from_dict(st.session_state.emissions_summary, orient="index", columns=["Emissions"])
@@ -228,7 +233,7 @@ else:
         else:
             st.info("No data to show chart.")
 
-    # Emission Log Card Table
+    # Emission Log Table
     if st.session_state.emissions_log:
         st.subheader("📂 Emissions Log")
         log_df = pd.DataFrame(st.session_state.emissions_log)
@@ -256,7 +261,6 @@ else:
         final_df = pd.concat([log_df,total_row], ignore_index=True)
         final_df.index = range(1,len(final_df)+1)
 
-        # Render table inside a card
         st.markdown("<div class='table-card'>", unsafe_allow_html=True)
         st.dataframe(final_df, use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)

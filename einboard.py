@@ -120,7 +120,7 @@ with st.sidebar:
 # ---------------------------
 # Main Content
 # ---------------------------
-st.title("🌍 EinTrust Dashboard")
+st.title("🌍 EinTrust Sustainability Dashboard")
 
 # ---------------------------
 # GHG Manual Entry Data
@@ -140,7 +140,7 @@ if 'entries' not in st.session_state:
     st.session_state.entries = pd.DataFrame(columns=["Scope","Activity","Sub-Activity","Specific Item","Quantity","Unit"])
 
 def render_ghg_dashboard(include_data=True):
-    st.subheader("🌱 GHG Emissions Dashboard")
+    st.subheader("GHG Emissions Dashboard")
     st.markdown("Estimate Scope 1, 2, and 3 emissions for net zero journey.")
 
     # KPIs
@@ -193,11 +193,11 @@ def render_ghg_dashboard(include_data=True):
         quantity = st.number_input(f"Enter Quantity ({unit})", min_value=0.0, format="%.2f")
 
         # File upload for cross-verification
-        st.subheader("Optional: Upload File for Cross-Verification")
+        st.subheader("Optional: Upload File")
         uploaded_file = st.file_uploader("Upload CSV/XLS/XLSX/PDF", type=["csv","xls","xlsx","pdf"])
 
         # Add Manual Entry
-        if st.button("Add Manual Entry"):
+        if st.button("Add Entry"):
             new_entry = {
                 "Scope": scope,
                 "Activity": activity,

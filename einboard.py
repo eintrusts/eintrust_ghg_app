@@ -6,6 +6,7 @@ import io
 import numpy as np
 from PIL import Image
 import requests
+from io import BytesIO
 
 # ---------------------------
 # Config & Dark Theme CSS
@@ -27,9 +28,14 @@ st.markdown(
 )
 
 # ---------------------------
-# Sidebar Logo
+# Sidebar Logo (fit width)
 # ---------------------------
-st.sidebar.image("https://raw.githubusercontent.com/eintrusts/eintrust/main/profile_photo.png", width=150)
+try:
+    response = requests.get("https://raw.githubusercontent.com/eintrusts/eintrust/main/profile_photo.png")
+    img = Image.open(BytesIO(response.content))
+    st.sidebar.image(img, use_column_width=True)
+except:
+    st.sidebar.warning("Logo could not be loaded.")
 
 # ---------------------------
 # Utilities
@@ -158,7 +164,6 @@ if add_mode and not emission_factors.empty:
             "Emissions (tCO₂e)": emissions
         }
         st.session_state.emissions_log.append(new_entry)
-
         summary = {"Scope 1": 0.0, "Scope 2": 0.0, "Scope 3": 0.0}
         for e in st.session_state.emissions_log:
             summary[e["Scope"]] += e["Emissions (tCO₂e)"]
@@ -257,7 +262,7 @@ else:
     st.info("No data to show in breakdown. Add entries from the sidebar.")
 
 # ---------------------------
-# Emissions Trend Stacked (Apr→Mar)
+# Emissions Trend Stacked (Apr→Mar) + Forecast
 # ---------------------------
 st.subheader("📈 Emissions Trend Over Time (Monthly — Apr→Mar)")
 if not df_log.empty:
@@ -277,6 +282,18 @@ if not df_log.empty:
         fig_bar = px.bar(stacked, x="MonthLabel", y="Emissions (tCO₂e)", color="Scope",
                          color_discrete_map=color_map, barmode="stack", template="plotly_dark")
         fig_bar.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3", xaxis_title="", yaxis_title="Emissions (tCO₂e)")
+        
+        # Forecast line
+        monthly_total = stacked.groupby("MonthLabel")["Emissions (tCO₂e)"].sum().reindex(MONTH_ORDER, fill_value=0).reset_index()
+        y = monthly_total["Emissions (tCO₂e)"].values.astype(float)
+        x = np.arange(len(y))
+        # Simple linear trend forecast
+        mask_nonzero = y > 0
+        if mask_nonzero.sum() >= 2:
+            coef = np.polyfit(x[mask_nonzero], y[mask_nonzero], 1)
+            forecast = coef[0]*x + coef[1]
+            fig_bar.add_scatter(x=MONTH_ORDER, y=forecast, mode='lines+markers', name='Forecast', line=dict(color='yellow', dash='dash'))
+
         st.plotly_chart(fig_bar, use_container_width=True)
 
 # ---------------------------

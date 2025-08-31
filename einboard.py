@@ -11,12 +11,12 @@ st.set_page_config(page_title="EinTrust Dashboard", page_icon="🌍", layout="wi
 
 st.markdown("""
 <style>
-.stApp { background-color: #0d1117; color: #e6edf3; }
-.kpi { background: #12131a; padding: 14px; border-radius: 10px; }
-.kpi-value { font-size: 20px; font-weight:700; }
-.kpi-label { font-size: 12px; color: #cfd8dc; }
-.stDataFrame { color: #e6edf3; }
-.sidebar .stButton>button { background:#198754; color:white; margin-bottom:5px; width:100%; }
+  .stApp { background-color: #0d1117; color: #e6edf3; }
+  .kpi { background: #12131a; padding: 14px; border-radius: 10px; }
+  .kpi-value { font-size: 20px; font-weight:700; }
+  .kpi-label { font-size: 12px; color: #cfd8dc; }
+  .stDataFrame { color: #e6edf3; }
+  .sidebar .stButton>button { background:#198754; color:white; margin-bottom:5px; width:100%; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -80,8 +80,7 @@ with st.sidebar:
     
     if st.button("Home"):
         st.session_state.page = "Home"
-
-    # Environment dropdown
+    
     env_exp = st.expander("Environment", expanded=True)
     with env_exp:
         if st.button("GHG"):
@@ -94,8 +93,7 @@ with st.sidebar:
             st.session_state.page = "Waste"
         if st.button("Biodiversity"):
             st.session_state.page = "Biodiversity"
-
-    # Social dropdown
+    
     social_exp = st.expander("Social", expanded=False)
     with social_exp:
         if st.button("Employee"):
@@ -104,8 +102,7 @@ with st.sidebar:
             st.session_state.page = "Health & Safety"
         if st.button("CSR"):
             st.session_state.page = "CSR"
-
-    # Governance dropdown
+    
     gov_exp = st.expander("Governance", expanded=False)
     with gov_exp:
         if st.button("Board"):
@@ -191,72 +188,185 @@ def render_ghg_dashboard(include_data=True):
             fig_bar.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3", xaxis_title="", yaxis_title="Emissions (tCO₂e)")
             st.plotly_chart(fig_bar, use_container_width=True)
 
-    # Add Activity Data & Log (only on GHG page)
+    # -----------------------------
+    # NEW: Indian SME GHG Data Entry
+    # -----------------------------
     if include_data:
-        st.subheader("➕ Add Activity Data")
-        if not emission_factors.empty:
-            scope_options = emission_factors["scope"].dropna().unique()
-            selected_scope = st.selectbox("Select Scope", scope_options)
-            filtered_df = emission_factors[emission_factors["scope"] == selected_scope]
+        st.subheader("➕ Add Activity Data (Indian SME GHG)")
+        import numpy as np
 
-            if selected_scope == "Scope 3":
-                category_options = filtered_df["category"].dropna().unique()
-                selected_category = st.selectbox("Select Scope 3 Category", category_options)
-                category_df = filtered_df[filtered_df["category"] == selected_category]
-                activity_options = category_df["activity"].dropna().unique()
-                selected_activity = st.selectbox("Select Activity", activity_options)
-                activity_df = category_df[category_df["activity"] == selected_activity]
-            else:
-                selected_category = "-"
-                activity_options = filtered_df["activity"].dropna().unique()
-                selected_activity = st.selectbox("Select Activity", activity_options)
-                activity_df = filtered_df[filtered_df["activity"] == selected_activity]
-
-            if not activity_df.empty:
-                unit = str(activity_df["unit"].values[0])
-                ef = float(activity_df["emission_factor"].values[0])
-            else:
-                unit = "-"
-                ef = 0.0
-
-            quantity = st.number_input(f"Enter quantity ({unit})", min_value=0.0, format="%.4f")
-            st.markdown(f"Entered Quantity: {format_indian(quantity)} {unit}")
-
-            if st.button("Add Entry") and quantity > 0 and ef > 0 and selected_scope and selected_activity:
-                emissions = quantity * ef
-                new_entry = {
-                    "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "Scope": selected_scope,
-                    "Category": selected_category,
-                    "Activity": selected_activity,
-                    "Quantity": quantity,
-                    "Unit": unit,
-                    "Emission Factor": ef,
-                    "Emissions (tCO₂e)": emissions
+        # Helper Dictionaries
+        scope_activities = {
+            "Scope 1": {
+                "Stationary Combustion": {
+                    "Diesel Generator": "Generator running on diesel for electricity",
+                    "Petrol Generator": "Generator running on petrol for electricity",
+                    "LPG Boiler": "Boiler or stove using LPG",
+                    "Coal Boiler": "Boiler/furnace burning coal",
+                    "Biomass Furnace": "Furnace burning wood/agricultural residue"
+                },
+                "Mobile Combustion": {
+                    "Diesel Vehicle": "Truck/van running on diesel",
+                    "Petrol Car": "Car/van running on petrol",
+                    "CNG Vehicle": "Bus or delivery vehicle running on CNG",
+                    "Diesel Forklift": "Forklift running on diesel",
+                    "Petrol Two-Wheeler": "Scooter or bike running on petrol"
+                },
+                "Process Emissions": {
+                    "Cement Production": "CO₂ from cement making",
+                    "Steel Production": "CO₂ from steel processing",
+                    "Brick Kiln": "CO₂ from brick firing",
+                    "Textile Processing": "Emissions from dyeing/fabric processing",
+                    "Chemical Manufacturing": "Emissions from chemical reactions",
+                    "Food Processing": "Emissions from cooking/heating"
+                },
+                "Fugitive Emissions": {
+                    "Refrigerant (HFC/HCFC)": "Gas leak from AC/refrigerator",
+                    "Methane (CH₄)": "Methane leaks from storage/pipelines",
+                    "SF₆": "Gas leak from electrical equipment"
                 }
-                st.session_state.emissions_log.append(new_entry)
-                summary = {"Scope 1": 0.0, "Scope 2": 0.0, "Scope 3": 0.0}
-                for e in st.session_state.emissions_log:
-                    summary[e["Scope"]] += e["Emissions (tCO₂e)"]
-                st.session_state.emissions_summary = summary
-                st.success("Entry added.")
+            },
+            "Scope 2": {
+                "Electricity Consumption": {"Grid Electricity": "Electricity bought from grid",
+                                            "Diesel Generator Electricity": "Electricity generated on-site with diesel"},
+                "Steam / Heat": {"Purchased Steam": "Steam bought from external supplier"},
+                "Cooling / Chilled Water": {"Purchased Cooling": "Cooling bought from supplier"}
+            },
+            "Scope 3": {
+                "Purchased Goods & Services": {
+                    "Raw Materials": ["Cement", "Steel", "Chemicals", "Textile"],
+                    "Packaging Materials": ["Cardboard", "Plastics", "Glass"],
+                    "Office Supplies": ["Paper", "Ink", "Stationery"],
+                    "Purchased Services": ["Printing", "Logistics", "Cleaning", "IT"]
+                },
+                "Business Travel": {
+                    "Air Travel": None,
+                    "Train Travel": None,
+                    "Taxi / Cab / Auto": None
+                },
+                "Employee Commuting": {
+                    "Two-Wheelers": None,
+                    "Cars / Vans": None,
+                    "Public Transport": None
+                },
+                "Waste Generated": {
+                    "Landfill": None,
+                    "Recycling": None,
+                    "Composting / Biogas": None
+                },
+                "Upstream Transportation & Distribution": {
+                    "Incoming Goods Transport": None,
+                    "Third-party Logistics": None
+                },
+                "Downstream Transportation & Distribution": {
+                    "Delivery to Customers": None,
+                    "Retail / Distributor Transport": None
+                },
+                "Use of Sold Products": {"Product Use": None},
+                "End-of-Life Treatment": {"Recycling / Landfill": None}
+            }
+        }
 
-        # Emissions Log
-        st.subheader("📜 Emissions Log")
-        if st.session_state.emissions_log:
-            log_df = pd.DataFrame(st.session_state.emissions_log).sort_values("Timestamp", ascending=False).reset_index(drop=True)
-            st.dataframe(log_df, use_container_width=True)
-            st.download_button("📥 Download Current Log (CSV)", data=log_df.to_csv(index=False), file_name="emissions_log_current.csv", mime="text/csv")
+        units_dict = {
+            "Diesel Generator": "Liters",
+            "Petrol Generator": "Liters",
+            "LPG Boiler": "Liters",
+            "Coal Boiler": "kg",
+            "Biomass Furnace": "kg",
+            "Diesel Vehicle": "Liters",
+            "Petrol Car": "Liters",
+            "CNG Vehicle": "m³",
+            "Diesel Forklift": "Liters",
+            "Petrol Two-Wheeler": "Liters",
+            "Cement Production": "Tonnes",
+            "Steel Production": "Tonnes",
+            "Brick Kiln": "Tonnes",
+            "Textile Processing": "Tonnes",
+            "Chemical Manufacturing": "Tonnes",
+            "Food Processing": "Tonnes",
+            "Refrigerant (HFC/HCFC)": "kg",
+            "Methane (CH₄)": "kg",
+            "SF₆": "kg",
+            "Grid Electricity": "kWh",
+            "Diesel Generator Electricity": "kWh",
+            "Purchased Steam": "Tonnes",
+            "Purchased Cooling": "kWh"
+        }
+
+        # Initialize Session State
+        if 'entries' not in st.session_state:
+            st.session_state.entries = pd.DataFrame(columns=["Scope","Activity","Sub-Activity","Specific Item","Quantity","Unit"])
+
+        # Scope Selection
+        scope_sel = st.selectbox("Select Scope", ["Scope 1", "Scope 2", "Scope 3"])
+
+        # Activity Selection
+        activity_sel = st.selectbox("Select Activity / Category", list(scope_activities[scope_sel].keys()))
+
+        # Sub-Activity Selection
+        sub_options = scope_activities[scope_sel][activity_sel]
+        if scope_sel != "Scope 3":
+            sub_activity_sel = st.selectbox("Select Sub-Activity", list(sub_options.keys()))
+            st.info(sub_options[sub_activity_sel])
         else:
-            st.info("No emission log data yet. Add entries above.")
+            sub_activity_sel = st.selectbox("Select Sub-Category", list(sub_options.keys()))
+
+        # Specific Item for Scope 3
+        specific_item_sel = None
+        if scope_sel == "Scope 3":
+            items = scope_activities[scope_sel][activity_sel][sub_activity_sel]
+            if items is not None:
+                specific_item_sel = st.selectbox("Select Specific Item", items)
+
+        # Quantity Input
+        unit_sel = None
+        if scope_sel != "Scope 3":
+            unit_sel = units_dict.get(sub_activity_sel, "")
+        else:
+            if sub_activity_sel in ["Air Travel"]:
+                unit_sel = "Number of flights"
+            elif sub_activity_sel in ["Train Travel","Taxi / Cab / Auto","Two-Wheelers","Cars / Vans","Public Transport","Incoming Goods Transport","Third-party Logistics","Delivery to Customers","Retail / Distributor Transport"]:
+                unit_sel = "km traveled"
+            else:
+                unit_sel = "kg / Tonnes"
+
+        quantity_sel = st.number_input(f"Enter Quantity ({unit_sel})", min_value=0.0, format="%.2f")
+
+        # Add Manual Entry
+        if st.button("Add Manual Entry"):
+            new_entry = {
+                "Scope": scope_sel,
+                "Activity": activity_sel,
+                "Sub-Activity": sub_activity_sel,
+                "Specific Item": specific_item_sel if specific_item_sel else "",
+                "Quantity": quantity_sel,
+                "Unit": unit_sel
+            }
+            st.session_state.entries = pd.concat([st.session_state.entries, pd.DataFrame([new_entry])], ignore_index=True)
+            st.success("Entry added successfully!")
+
+        # Display Entries Table
+        if not st.session_state.entries.empty:
+            st.subheader("All Entries")
+            display_df = st.session_state.entries.copy()
+            display_df["Quantity"] = display_df["Quantity"].apply(lambda x: f"{x:,.2f}")
+            st.dataframe(display_df)
+
+        # Optional: Download CSV
+        def convert_df(df):
+            return df.to_csv(index=False).encode('utf-8')
+
+        if not st.session_state.entries.empty:
+            csv = convert_df(st.session_state.entries)
+            st.download_button("Download All Entries as CSV", csv, "ghg_entries.csv", "text/csv")
 
 # ---------------------------
 # Render pages
 # ---------------------------
 if st.session_state.page == "Home":
-    render_ghg_dashboard(include_data=False)   # Home shows only charts and KPIs
+    render_ghg_dashboard(include_data=False)  # Home shows only charts and KPIs
 elif st.session_state.page == "GHG":
-    render_ghg_dashboard(include_data=True)    # GHG page shows full dashboard with Add Activity
+    render_ghg_dashboard(include_data=True)   # GHG page shows full dashboard with Indian SME GHG entry
 else:
     st.subheader(f"{st.session_state.page} Section")
     st.info("This section is under development. Please select other pages from sidebar.")

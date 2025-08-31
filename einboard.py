@@ -156,9 +156,8 @@ def render_employee_dashboard():
     st.subheader("Employee Data")
     
     df = st.session_state.employee_data.copy()
-    
-    st.info("Fill employee data. Total will be auto-calculated.")
-    
+    st.info("Fill employee data. Total = Male + Female. All data saved in session.")
+
     categories = [
         "Workforce Profile","Age-wise Distribution","Diversity & Inclusion",
         "Retention & Turnover","Training & Development","Employee Welfare & Engagement"
@@ -173,7 +172,6 @@ def render_employee_dashboard():
             unit = st.text_input(f"Unit/Note ({cat})", key=f"unit_{cat}")
             
             if st.button(f"Add/Update {cat}"):
-                # Check if already exists
                 idx = df[df["Category"]==cat].index
                 if len(idx)>0:
                     df.loc[idx[0], ["Sub-Category","Male","Female","Total","Unit/Note"]] = [sub_cat, male, female, total, unit]
@@ -186,7 +184,7 @@ def render_employee_dashboard():
                 
                 st.session_state.employee_data = df
                 st.success(f"{cat} updated successfully!")
-    
+
     if not df.empty:
         st.subheader("All Employee Data")
         st.dataframe(df)

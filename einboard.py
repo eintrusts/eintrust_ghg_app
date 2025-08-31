@@ -24,7 +24,7 @@ st.markdown("""
 # Utilities
 # ---------------------------
 MONTH_ORDER = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"]
-SUSTAINABILITY_COLORS = {"Scope 1": "#2E7D32", "Scope 2": "#66BB6A", "Scope 3": "#A5D6A7"}
+ENERGY_COLORS = {"Scope 1": "#1E3A8A", "Scope 2": "#84CC16", "Scope 3": "#FACC15"}
 
 def format_indian(n: float) -> str:
     try:
@@ -197,11 +197,11 @@ c1, c2, c3, c4 = st.columns(4)
 with c1:
     st.markdown(f"<div class='kpi'><div class='kpi-value'>{format_indian(total)}</div><div class='kpi-label'>Total Emissions (tCO₂e)</div></div>", unsafe_allow_html=True)
 with c2:
-    st.markdown(f"<div class='kpi' style='color:{SUSTAINABILITY_COLORS['Scope 1']}'><div class='kpi-value'>{format_indian(s1)}</div><div class='kpi-label'>Scope 1 (tCO₂e)</div></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='kpi' style='color:{ENERGY_COLORS['Scope 1']}'><div class='kpi-value'>{format_indian(s1)}</div><div class='kpi-label'>Scope 1 (tCO₂e)</div></div>", unsafe_allow_html=True)
 with c3:
-    st.markdown(f"<div class='kpi' style='color:{SUSTAINABILITY_COLORS['Scope 2']}'><div class='kpi-value'>{format_indian(s2)}</div><div class='kpi-label'>Scope 2 (tCO₂e)</div></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='kpi' style='color:{ENERGY_COLORS['Scope 2']}'><div class='kpi-value'>{format_indian(s2)}</div><div class='kpi-label'>Scope 2 (tCO₂e)</div></div>", unsafe_allow_html=True)
 with c4:
-    st.markdown(f"<div class='kpi' style='color:{SUSTAINABILITY_COLORS['Scope 3']}'><div class='kpi-value'>{format_indian(s3)}</div><div class='kpi-label'>Scope 3 (tCO₂e)</div></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='kpi' style='color:{ENERGY_COLORS['Scope 3']}'><div class='kpi-value'>{format_indian(s3)}</div><div class='kpi-label'>Scope 3 (tCO₂e)</div></div>", unsafe_allow_html=True)
 
 # ---------------------------
 # Charts
@@ -211,30 +211,43 @@ if not df_log.empty:
     df_log["Timestamp"] = pd.to_datetime(df_log["Timestamp"], errors="coerce")
     df_log = df_log.dropna(subset=["Timestamp"])
     df_cycle = df_log[(df_log["Timestamp"].dt.date >= cycle_start) & (df_log["Timestamp"].dt.date <= cycle_end)].copy()
-    
+
     if not df_cycle.empty:
         # Pie chart
         st.subheader("🧩 Emission Breakdown by Scope")
         pie_df = df_cycle.groupby("Scope")["Emissions (tCO₂e)"].sum().reset_index()
-        fig_pie = px.pie(pie_df, names="Scope", values="Emissions (tCO₂e)", hole=0.45,
-                         color="Scope", color_discrete_map=SUSTAINABILITY_COLORS, template="plotly_dark",
-                         hover_data={"Emissions (tCO₂e)": ":,.2f"})
+        fig_pie = px.pie(
+            pie_df,
+            names="Scope",
+            values="Emissions (tCO₂e)",
+            hole=0.45,
+            color="Scope",
+            color_discrete_map=ENERGY_COLORS,
+            template="plotly_dark"
+        )
+        fig_pie.update_traces(hovertemplate="%{label}: %{value:,.2f} tCO₂e<extra></extra>")
         fig_pie.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3")
         st.plotly_chart(fig_pie, use_container_width=True)
 
-        # Stacked bar chart
+        # Stacked Bar Chart - Monthly Trend
         st.subheader("📈 Emissions Trend Over Time (Monthly)")
         df_cycle["MonthLabel"] = pd.Categorical(df_cycle["Timestamp"].dt.strftime("%b"), categories=MONTH_ORDER, ordered=True)
         stacked = df_cycle.groupby(["MonthLabel", "Scope"])["Emissions (tCO₂e)"].sum().reset_index()
         pivot = stacked.pivot(index="MonthLabel", columns="Scope", values="Emissions (tCO₂e)").reindex(MONTH_ORDER).fillna(0).reset_index()
         melt = pivot.melt(id_vars=["MonthLabel"], var_name="Scope", value_name="Emissions (tCO₂e)")
-        fig_bar = px.bar(melt, x="MonthLabel", y="Emissions (tCO₂e)", color="Scope",
-                         color_discrete_map=SUSTAINABILITY_COLORS, barmode="stack", template="plotly_dark",
-                         hover_data={"Emissions (tCO₂e)": ":,.2f"})
+        fig_bar = px.bar(
+            melt,
+            x="MonthLabel",
+            y="Emissions (tCO₂e)",
+            color="Scope",
+            color_discrete_map=ENERGY_COLORS,
+            barmode="stack",
+            template="plotly_dark"
+        )
         fig_bar.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3", xaxis_title="", yaxis_title="Emissions (tCO₂e)")
         st.plotly_chart(fig_bar, use_container_width=True)
 
-        # Forecast per scope with hover tooltip
+        # Line Chart with Forecast per Scope
         st.subheader("📉 Actual vs Forecast per Scope")
         fig_line = px.line(template="plotly_dark")
         fig_line.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3", xaxis_title="", yaxis_title="Emissions (tCO₂e)")
@@ -252,18 +265,18 @@ if not df_log.empty:
 
             fig_line.add_scatter(
                 x=MONTH_ORDER, y=y, mode="lines+markers", name=f"{scope} Actual",
-                line=dict(color=SUSTAINABILITY_COLORS[scope], width=3),
+                line=dict(color=ENERGY_COLORS[scope], width=3),
                 hovertemplate=f"{scope} Actual: %{{y:,.2f}} tCO₂e<br>Month: %{{x}}"
             )
             fig_line.add_scatter(
                 x=MONTH_ORDER, y=forecast_vals, mode="lines+markers", name=f"{scope} Forecast",
-                line=dict(color=SUSTAINABILITY_COLORS[scope], dash="dash", width=3),
+                line=dict(color=ENERGY_COLORS[scope], dash="dash", width=3),
                 hovertemplate=f"{scope} Forecast: %{{y:,.2f}} tCO₂e<br>Month: %{{x}}"
             )
         st.plotly_chart(fig_line, use_container_width=True)
 
 # ---------------------------
-# Emissions Log Table
+# Emissions Log
 # ---------------------------
 st.subheader("📜 Emissions Log")
 if st.session_state.emissions_log:

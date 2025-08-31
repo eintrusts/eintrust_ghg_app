@@ -19,9 +19,14 @@ st.markdown("""
     color: #228B22;
 }
 
-/* Sidebar */
-.css-1d391kg {
+/* Sidebar full customization */
+[data-testid="stSidebar"] {
     background-color: #f5f5f0;
+    color: #228B22;
+}
+
+/* Sidebar text */
+[data-testid="stSidebar"] * {
     color: #228B22;
 }
 
@@ -50,15 +55,18 @@ h1, h2, h3, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
     color: white;
 }
 
-/* Multiselect, input boxes, textareas */
-.css-1hynsf2, .stSelectbox>div>div>div>div, .stNumberInput>div>div>input {
-    color: #228B22;
-}
-
 /* Dataframe styling */
 .stDataFrame>div>div>div>div {
     color: #228B22;
     font-weight: 500;
+}
+
+/* Card-like container for latest entry */
+.latest-entry {
+    background-color: #eaf4fc;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 5px solid #4169E1;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -76,10 +84,9 @@ try:
 except Exception as e:
     st.sidebar.write("Logo not available:", e)
 
-# --- Sidebar Mini-Profile for Responsible Person ---
-st.sidebar.markdown("### 🧑 Responsible Person")
-resp_name = st.sidebar.text_input("Name", value="Enter name")
-resp_contact = st.sidebar.text_input("Contact", value="Enter contact")
+# --- Sidebar: Dashboard Input ---
+st.sidebar.header("➕ Add Activity Data")
+add_mode = st.sidebar.checkbox("Add Entry Mode", value=False)
 
 # --- Load Emission Factors ---
 try:
@@ -94,10 +101,7 @@ if "emissions_summary" not in st.session_state:
 if "emissions_log" not in st.session_state:
     st.session_state.emissions_log = []
 
-# --- Sidebar Input ---
-st.sidebar.header("➕ Add Activity Data")
-add_mode = st.sidebar.checkbox("Add Entry Mode", value=False)
-
+# --- Sidebar Activity Input ---
 if add_mode and not emission_factors.empty:
     scope_options = emission_factors["scope"].dropna().unique()
     selected_scope = st.sidebar.selectbox("Select Scope", scope_options)
@@ -152,8 +156,10 @@ with col1:
     st.subheader("📅 Latest Emission Entry")
     if st.session_state.emissions_log:
         latest = st.session_state.emissions_log[-1]
+        st.markdown("<div class='latest-entry'>", unsafe_allow_html=True)
         for k,v in latest.items():
-            st.markdown(f"- **{k}:** {v}")
+            st.markdown(f"**{k}:** {v}")
+        st.markdown("</div>", unsafe_allow_html=True)
     else:
         st.info("No data yet. Add from sidebar.")
 
@@ -164,8 +170,7 @@ with col2:
     chart_df = chart_df[chart_df["Emissions"]>0]
 
     if not chart_df.empty:
-        # Pie chart with professional theme colors
-        colors = ['#4169E1', '#228B22', '#1F3A93']  # Royal blue, Forest green, Dark blue
+        colors = ['#4169E1', '#228B22', '#1F3A93']
         fig = px.pie(chart_df, names="Scope", values="Emissions",
                      color="Scope", color_discrete_sequence=colors, hole=0.45)
         fig.update_traces(textinfo='percent+label', textfont_size=14)

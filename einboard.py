@@ -2,13 +2,12 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime, date
-import io
 import numpy as np
 
 # ---------------------------
 # Config & Dark Theme CSS
 # ---------------------------
-st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout="wide")
+st.set_page_config(page_title="EinTrust Dashboard", page_icon="🌍", layout="wide")
 
 st.markdown("""
 <style>
@@ -63,7 +62,7 @@ except FileNotFoundError:
     st.sidebar.warning("emission_factors.csv not found — add it to use prefilled activities.")
 
 # ---------------------------
-# Session state initialization
+# Session state
 # ---------------------------
 if "emissions_log" not in st.session_state:
     st.session_state.emissions_log = []
@@ -82,6 +81,7 @@ with st.sidebar:
     if st.button("Home"):
         st.session_state.page = "Home"
 
+    # Environment dropdown
     env_exp = st.expander("Environment", expanded=True)
     with env_exp:
         if st.button("GHG"):
@@ -95,10 +95,32 @@ with st.sidebar:
         if st.button("Biodiversity"):
             st.session_state.page = "Biodiversity"
 
+    # Social dropdown
+    social_exp = st.expander("Social", expanded=False)
+    with social_exp:
+        if st.button("Employee"):
+            st.session_state.page = "Employee"
+        if st.button("Health & Safety"):
+            st.session_state.page = "Health & Safety"
+        if st.button("CSR"):
+            st.session_state.page = "CSR"
+
+    # Governance dropdown
+    gov_exp = st.expander("Governance", expanded=False)
+    with gov_exp:
+        if st.button("Board"):
+            st.session_state.page = "Board"
+        if st.button("Policies"):
+            st.session_state.page = "Policies"
+        if st.button("Compliance"):
+            st.session_state.page = "Compliance"
+        if st.button("Risk Management"):
+            st.session_state.page = "Risk Management"
+
 # ---------------------------
-# Add Activity Data (Sidebar only on GHG page)
+# Sidebar Add Activity Data (GHG only)
 # ---------------------------
-if st.session_state.page == "GHG":
+if st.session_state.page in ["Home", "GHG"]:
     st.sidebar.header("Add Activity Data")
     add_mode = st.sidebar.checkbox("Add Entry Mode", value=False)
 
@@ -160,17 +182,11 @@ if st.session_state.page == "GHG":
 # ---------------------------
 st.title("🌍 EinTrust Dashboard")
 
-if st.session_state.page == "Home":
-    st.subheader("Welcome to EinTrust Dashboard")
-    st.markdown("Use the sidebar to navigate to different environment sections like GHG, Energy, Water, Waste, Biodiversity.")
-
-elif st.session_state.page == "GHG":
+def render_ghg_dashboard():
     st.subheader("🌱 GHG Emissions Dashboard")
     st.markdown("Estimate Scope 1, 2, and 3 emissions for net zero journey.")
 
-    # ---------------------------
     # KPIs
-    # ---------------------------
     s1 = st.session_state.emissions_summary.get("Scope 1", 0.0)
     s2 = st.session_state.emissions_summary.get("Scope 2", 0.0)
     s3 = st.session_state.emissions_summary.get("Scope 3", 0.0)
@@ -188,9 +204,7 @@ elif st.session_state.page == "GHG":
     with c4:
         st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 3']}'>{format_indian(s3)}</div><div class='kpi-label'>Scope 3 (tCO₂e)</div></div>", unsafe_allow_html=True)
 
-    # ---------------------------
     # Pie Chart
-    # ---------------------------
     st.subheader("📊 Emission Breakdown by Scope")
     df_log = pd.DataFrame(st.session_state.emissions_log)
     if not df_log.empty:
@@ -209,9 +223,7 @@ elif st.session_state.page == "GHG":
     else:
         st.info("No data to show in breakdown. Add entries from sidebar.")
 
-    # ---------------------------
-    # Monthly Trend Chart
-    # ---------------------------
+    # Monthly Trend
     st.subheader("📈 Emissions Trend Over Time (Monthly)")
     if not df_log.empty:
         df_log["Timestamp"] = pd.to_datetime(df_log["Timestamp"], errors="coerce")
@@ -239,9 +251,7 @@ elif st.session_state.page == "GHG":
             fig_bar.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3", xaxis_title="", yaxis_title="Emissions (tCO₂e)")
             st.plotly_chart(fig_bar, use_container_width=True)
 
-    # ---------------------------
     # Emissions Log
-    # ---------------------------
     st.subheader("📜 Emissions Log")
     if st.session_state.emissions_log:
         log_df = pd.DataFrame(st.session_state.emissions_log).sort_values("Timestamp", ascending=False).reset_index(drop=True)
@@ -249,3 +259,12 @@ elif st.session_state.page == "GHG":
         st.download_button("📥 Download Current Log (CSV)", data=log_df.to_csv(index=False), file_name="emissions_log_current.csv", mime="text/csv")
     else:
         st.info("No emission log data yet. Add entries from the sidebar.")
+
+# ---------------------------
+# Render pages
+# ---------------------------
+if st.session_state.page in ["Home", "GHG"]:
+    render_ghg_dashboard()
+else:
+    st.subheader(f"{st.session_state.page} Section")
+    st.info("This section is under development. Please select other pages from sidebar.")

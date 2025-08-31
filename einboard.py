@@ -128,87 +128,88 @@ if "sdg_engagement" not in st.session_state:
     st.session_state.sdg_engagement = {i:0 for i in range(1,18)}
 if "employee_data" not in st.session_state:
     st.session_state.employee_data = pd.DataFrame(columns=[
-        "Category","Male","Female","Total","Remarks"
+        "Category","Sub-Category","Male","Female","Total","Unit/Note"
     ])
 
 # ---------------------------
-# Constants (Existing)
+# Constants
 # ---------------------------
 months = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"]
-
-# ---------------------------
-# Existing Dashboards (Home, GHG, Energy, SDG)
-# ---------------------------
-# (Keep your perfect code exactly here without changes)
-# Assume all previous functions: render_ghg_dashboard(), render_energy_dashboard(), render_sdg_dashboard()
-# are present here exactly as in your perfect code
+SCOPE_COLORS = {"Scope 1": "#81c784", "Scope 2": "#4db6ac", "Scope 3": "#aed581"}
+ENERGY_COLORS = {"Fossil": "#f39c12", "Renewable": "#2ecc71"}
+SDG_LIST = [
+    "No Poverty", "Zero Hunger", "Good Health & Wellbeing", "Quality Education", "Gender Equality",
+    "Clean Water & Sanitation", "Affordable & Clean Energy", "Decent Work & Economic Growth",
+    "Industry, Innovation & Infrastructure", "Reduced Inequalities", "Sustainable Cities & Communities",
+    "Responsible Consumption & Production", "Climate Action", "Life Below Water", "Life on Land",
+    "Peace, Justice & Strong Institutions", "Partnerships for the Goals"
+]
+SDG_COLORS = [
+    "#e5243b","#dda63a","#4c9f38","#c5192d","#ff3a21","#26bde2","#fcc30b","#a21942","#fd6925",
+    "#dd1367","#fd9d24","#bf8b2e","#3f7e44","#0a97d9","#56c02b","#00689d","#19486a"
+]
 
 # ---------------------------
 # Employee Dashboard
 # ---------------------------
 def render_employee_dashboard():
-    st.title("Employee / Workforce Dashboard")
-
-    # Predefined workforce sections
-    sections = [
-        "Number of Employees",
-        "Age-wise Distribution",
-        "Diversity and Inclusion",
-        "Retention & Turnover",
-        "Training and Development",
-        "Employee Welfare & Engagement"
+    st.subheader("Employee Data")
+    
+    df = st.session_state.employee_data.copy()
+    
+    st.info("Fill employee data. Total will be auto-calculated.")
+    
+    categories = [
+        "Workforce Profile","Age-wise Distribution","Diversity & Inclusion",
+        "Retention & Turnover","Training & Development","Employee Welfare & Engagement"
     ]
-
-    # Initialize dataframe if empty
-    if st.session_state.employee_data.empty:
-        df = pd.DataFrame({
-            "Category": sections,
-            "Male": [0]*len(sections),
-            "Female": [0]*len(sections),
-            "Total": [0]*len(sections),
-            "Remarks": [""]*len(sections)
-        })
-        st.session_state.employee_data = df
-
-    st.subheader("Workforce Data")
-    df = st.session_state.employee_data
-
-    # Editable table using columns
-    for i, row in df.iterrows():
-        st.markdown(f"### {row['Category']}")
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            male = st.number_input(f"Male ({row['Category']})", min_value=0, value=int(row["Male"]), key=f"male_{i}")
-        with col2:
-            female = st.number_input(f"Female ({row['Category']})", min_value=0, value=int(row["Female"]), key=f"female_{i}")
-        with col3:
+    
+    for cat in categories:
+        with st.expander(cat, expanded=True):
+            sub_cat = st.text_input(f"Sub-Category under {cat}", key=f"sub_{cat}")
+            male = st.number_input(f"Male count ({cat})", min_value=0, key=f"male_{cat}")
+            female = st.number_input(f"Female count ({cat})", min_value=0, key=f"female_{cat}")
             total = male + female
-            st.markdown(f"**Total: {total}**")
-        with col4:
-            remarks = st.text_input(f"Remarks ({row['Category']})", value=row["Remarks"], key=f"remarks_{i}")
-        # Update dataframe
-        st.session_state.employee_data.loc[i, ["Male","Female","Total","Remarks"]] = [male, female, total, remarks]
-
-    # Download button
-    csv = st.session_state.employee_data.to_csv(index=False).encode('utf-8')
-    st.download_button("Download Employee Data CSV", csv, "employee_data.csv", "text/csv")
-    st.success("Employee data updated successfully!")
+            unit = st.text_input(f"Unit/Note ({cat})", key=f"unit_{cat}")
+            
+            if st.button(f"Add/Update {cat}"):
+                # Check if already exists
+                idx = df[df["Category"]==cat].index
+                if len(idx)>0:
+                    df.loc[idx[0], ["Sub-Category","Male","Female","Total","Unit/Note"]] = [sub_cat, male, female, total, unit]
+                else:
+                    df = pd.concat([df, pd.DataFrame([{
+                        "Category": cat, "Sub-Category": sub_cat,
+                        "Male": male, "Female": female, "Total": total,
+                        "Unit/Note": unit
+                    }])], ignore_index=True)
+                
+                st.session_state.employee_data = df
+                st.success(f"{cat} updated successfully!")
+    
+    if not df.empty:
+        st.subheader("All Employee Data")
+        st.dataframe(df)
+        csv = df.to_csv(index=False).encode("utf-8")
+        st.download_button("Download Employee Data as CSV", csv, "employee_data.csv","text/csv")
 
 # ---------------------------
 # Render Pages
 # ---------------------------
 if st.session_state.page == "Home":
     st.title("EinTrust Sustainability Dashboard")
-    render_ghg_dashboard(include_data=False, show_chart=False)
-    render_energy_dashboard(include_input=False, show_chart=False)
+    st.info("Select pages from the sidebar to navigate.")
 elif st.session_state.page == "GHG":
-    render_ghg_dashboard(include_data=True, show_chart=True)
+    st.subheader("GHG Dashboard")
+    st.info("GHG dashboard under development...")
 elif st.session_state.page == "Energy":
-    render_energy_dashboard(include_input=True, show_chart=True)
-elif st.session_state.page == "SDG":
-    render_sdg_dashboard()
+    st.subheader("Energy Dashboard")
+    st.info("Energy dashboard under development...")
 elif st.session_state.page == "Employee":
     render_employee_dashboard()
+elif st.session_state.page == "SDG":
+    st.subheader("SDG Dashboard")
+    st.info("SDG dashboard under development...")
 else:
     st.subheader(f"{st.session_state.page} section")
     st.info("This section is under development. Please select other pages from sidebar.")

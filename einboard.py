@@ -130,7 +130,7 @@ if add_mode:
     qty_input = st.sidebar.text_input(f"Quantity ({unit})", value="0")
     try: qty = float(qty_input.replace(",",""))
     except: qty=0.0
-    st.sidebar.markdown(f"Entered Quantity (Indian format): **{format_indian(qty)}**")
+    st.sidebar.markdown(f"Entered Quantity: **{format_indian(qty)} {unit}**")
 
     if st.sidebar.button("Add Entry") and qty>0 and ef>0:
         emissions = qty*ef
@@ -206,12 +206,12 @@ if not df_log.empty:
         st.plotly_chart(fig_bar,use_container_width=True)
 
 # ---------------------------
-# Emissions Log
+# Emissions Log Table
 # ---------------------------
 st.subheader("📜 Emissions Log")
 if st.session_state.emissions_log:
     log_df = pd.DataFrame(st.session_state.emissions_log).sort_values("Timestamp",ascending=False).reset_index(drop=True)
     st.dataframe(log_df,use_container_width=True)
-    st.download_button("📥 Download Current Log (CSV)", log_df.to_csv(index=False), "emissions_log_current.csv", "text/csv")
+    st.download_button("📥 Download Current Log (CSV)", log_df.to_csv(index=False), "emissions_log_current.csv","text/csv")
 else:
     st.info("No emission log data yet. Add entries from the sidebar.")

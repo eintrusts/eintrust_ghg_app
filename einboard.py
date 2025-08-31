@@ -162,7 +162,7 @@ def render_ghg_dashboard(include_data=True):
         st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 3']}'>{format_indian(s3)}</div><div class='kpi-label'>Scope 3 (tCO₂e)</div></div>", unsafe_allow_html=True)
 
     if include_data:
-        st.subheader("➕ Add Manual Activity Data")
+        st.subheader("Add Activity Data")
 
         # Scope selection
         scope = st.selectbox("Select Scope", list(scope_activities.keys()))
@@ -193,11 +193,11 @@ def render_ghg_dashboard(include_data=True):
         quantity = st.number_input(f"Enter Quantity ({unit})", min_value=0.0, format="%.2f")
 
         # File upload for cross-verification
-        st.subheader("Optional: Upload File for Cross-Verification")
+        st.subheader("Optional: Upload File")
         uploaded_file = st.file_uploader("Upload CSV/XLS/XLSX/PDF", type=["csv","xls","xlsx","pdf"])
 
         # Add Manual Entry
-        if st.button("Add Manual Entry"):
+        if st.button("Add Entry"):
             new_entry = {
                 "Scope": scope,
                 "Activity": activity,

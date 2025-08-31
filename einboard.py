@@ -10,33 +10,49 @@ import time
 # --- Page Config ---
 st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout="wide")
 
-# --- Custom CSS for Dark Energy-Saving Theme + Sidebar Cards + Glowing Active Tab ---
+# --- Custom CSS for Dark Professional Theme ---
 st.markdown("""
 <style>
+/* Main App Dark Theme */
 .stApp { background-color: #121212; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #d3d3d3; }
+
+/* Sidebar */
 [data-testid="stSidebar"] { background-color: #1a1a1a; padding-top: 20px; }
-.sidebar-button { background-color: #1f1f1f; color: #228B22; font-weight: bold; border-radius: 8px; padding: 10px 15px; margin-bottom: 10px; text-align: center; cursor: pointer; transition: all 0.3s ease; }
-.sidebar-button:hover { background-color: #228B22; color: #ffffff; }
-.sidebar-button.active { background-color: #4169E1; color: white; box-shadow: 0 0 15px #4169E1; animation: glow 1.5s infinite alternate; }
-@keyframes glow { from { box-shadow: 0 0 10px #4169E1; } to { box-shadow: 0 0 25px #4169E1; } }
+
+/* Sidebar Radio */
+[data-baseweb="radio"] { color: #228B22; font-weight: bold; }
+
+/* Headings */
 h1,h2,h3,.stMarkdown h1,.stMarkdown h2,.stMarkdown h3 { color: #4169E1; font-weight: 700; }
-.card, .metric-card, .chart-card, .table-card { background-color: #1f1f1f; border-radius: 10px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); margin-bottom: 20px; }
+
+/* Cards */
+.card, .metric-card, .chart-card, .table-card { background-color: #1f1f1f; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); margin-bottom: 20px; }
+
+/* Metric Cards */
 .metric-card { text-align: center; color: #ffffff; transition: transform 0.3s; }
-.metric-card h2 { margin: 5px 0; color: #4169E1; }
+.metric-card h2 { margin: 5px 0; color: #4169E1; font-size: 22px; }
 .metric-card p { margin: 0; color: #228B22; font-size: 18px; }
-.chart-card, .table-card { padding: 20px; }
+
+/* Chart Card */
+.chart-card { padding: 20px; }
+
+/* Table Card */
+.table-card { padding: 15px; }
 .table-card table { color: #d3d3d3; border-collapse: collapse; width: 100%; }
 .table-card th { background-color: #228B22; color: white; padding: 8px; text-align: left; }
 .table-card td { padding: 8px; text-align: left; }
 .table-card tr:hover { background-color: #2a2a2a; }
+
+/* Latest Entry Card */
+.latest-card { transition: transform 0.2s, box-shadow 0.2s; }
+.latest-card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.5); }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Sidebar: GitHub Logo ---
+# --- Sidebar Logo ---
 GITHUB_PROFILE_PHOTO_URL = "https://github.com/eintrusts.png"
 try:
     response = requests.get(GITHUB_PROFILE_PHOTO_URL)
-    response.raise_for_status()
     img = Image.open(BytesIO(response.content))
     st.sidebar.image(img, use_container_width=True)
 except:
@@ -54,9 +70,9 @@ if "emissions_log" not in st.session_state:
 # --- Load Emission Factors ---
 try:
     emission_factors = pd.read_csv("emission_factors.csv")
-except FileNotFoundError:
+except:
     emission_factors = pd.DataFrame(columns=["scope","category","activity","unit","emission_factor"])
-    st.warning("Emission factors file not found. Dashboard will work, but no emissions can be calculated.")
+    st.warning("Emission factors file not found. Add activity entries but emissions will be zero.")
 
 # --- Profile Tab ---
 if tab == "Profile":
@@ -133,20 +149,20 @@ else:
             for _ in range(30):
                 value += target / 30
                 placeholder.markdown(f"<div class='metric-card'><h2>{scope}</h2><p>{value:.2f} tCO₂e</p></div>", unsafe_allow_html=True)
-                time.sleep(0.03)
+                time.sleep(0.02)
 
     # Latest Entry
     st.subheader("📅 Latest Emission Entry")
     if st.session_state.emissions_log:
         latest = st.session_state.emissions_log[-1]
-        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.markdown("<div class='card latest-card'>", unsafe_allow_html=True)
         for k,v in latest.items():
             st.markdown(f"**{k}:** {v}")
         st.markdown("</div>", unsafe_allow_html=True)
     else:
         st.info("No data yet. Add from sidebar.")
 
-    # Pie Chart with Animation
+    # Pie Chart Animation
     st.subheader("📈 Emission Breakdown by Scope")
     chart_df = pd.DataFrame.from_dict(st.session_state.emissions_summary, orient="index", columns=["Emissions"])
     chart_df = chart_df.reset_index().rename(columns={"index":"Scope"})
@@ -155,14 +171,13 @@ else:
     if not chart_df.empty:
         colors = ['#4169E1', '#228B22', '#1F3A93']
         fig_placeholder = st.empty()
-        # Animated pie chart
         for frac in range(1, 101, 5):
             chart_df["Emissions_frac"] = chart_df["Emissions"] * frac / 100
             fig = px.pie(chart_df, names="Scope", values="Emissions_frac",
                          color="Scope", color_discrete_sequence=colors, hole=0.45)
             fig.update_traces(textinfo='percent+label', textfont_size=14)
             fig_placeholder.plotly_chart(fig, use_container_width=True)
-            time.sleep(0.03)
+            time.sleep(0.02)
     else:
         st.info("No data to show chart.")
 
@@ -171,7 +186,6 @@ else:
         st.subheader("📂 Emissions Log")
         log_df = pd.DataFrame(st.session_state.emissions_log)
         log_df.index = range(1,len(log_df)+1)
-
         total_row = pd.DataFrame([{
             "Timestamp":"-",
             "Scope":"Total",
@@ -184,7 +198,6 @@ else:
         }])
         final_df = pd.concat([log_df,total_row], ignore_index=True)
         final_df.index = range(1,len(final_df)+1)
-
         st.markdown("<div class='table-card'>", unsafe_allow_html=True)
         st.dataframe(final_df, use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)

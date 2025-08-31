@@ -2,11 +2,10 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime
-import os
 
 # --- Page Config ---
 st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout="wide")
-st.title("Einboard")
+st.title("EinTrust GHG Dashboard")
 st.markdown("Estimate Scope 1, 2, and 3 emissions for net zero journey.")
 
 # --- Load Emission Factors ---
@@ -14,6 +13,7 @@ try:
     emission_factors = pd.read_csv("emission_factors.csv")
 except FileNotFoundError:
     emission_factors = pd.DataFrame(columns=["scope","category","activity","unit","emission_factor"])
+    st.warning("Emission factors file not found. Dashboard will work, but no emissions can be calculated.")
 
 # --- Session State ---
 if "emissions_summary" not in st.session_state:
@@ -21,157 +21,110 @@ if "emissions_summary" not in st.session_state:
 if "emissions_log" not in st.session_state:
     st.session_state.emissions_log = []
 
-# Profile session state
-if "profile_photo" not in st.session_state:
-    st.session_state.profile_photo = None
-if "responsible_name" not in st.session_state:
-    st.session_state.responsible_name = ""
-if "responsible_contact" not in st.session_state:
-    st.session_state.responsible_contact = ""
+# --- Sidebar Input ---
+st.sidebar.header("➕ Add Activity Data")
+add_mode = st.sidebar.checkbox("Add Entry Mode", value=False)
 
-# --- Sidebar ---
-logo_path = "EinTrust logo.png"
-if os.path.exists(logo_path):
-    st.sidebar.image(logo_path, use_container_width=True)
-else:
-    st.sidebar.write("Logo not found")
+if add_mode and not emission_factors.empty:
+    scope_options = emission_factors["scope"].dropna().unique()
+    selected_scope = st.sidebar.selectbox("Select Scope", scope_options)
+    filtered_df = emission_factors[emission_factors["scope"]==selected_scope]
 
-# Navigation tabs
-selected_tab = st.sidebar.radio("Navigate", ["Profile", "Dashboard"])
-
-# --- Profile Tab ---
-if selected_tab == "Profile":
-    st.sidebar.header("👤 Profile Settings")
-    uploaded_photo = st.sidebar.file_uploader("Upload Profile Photo", type=["png","jpg","jpeg"])
-    if uploaded_photo:
-        st.session_state.profile_photo = uploaded_photo
-
-    company_name = "EinTrust Pvt Ltd"
-    username = "mayur123"
-    st.sidebar.text_input("Company Name", company_name, disabled=True)
-    st.sidebar.text_input("Username", username, disabled=True)
-
-    st.session_state.responsible_name = st.sidebar.text_input(
-        "Responsible Person Name", st.session_state.responsible_name
-    )
-    st.session_state.responsible_contact = st.sidebar.text_input(
-        "Responsible Person Contact", st.session_state.responsible_contact
-    )
-
-    # --- Main Screen Profile Display ---
-    st.subheader("👤 Company Profile")
-    if st.session_state.profile_photo:
-        st.image(st.session_state.profile_photo, width=200, caption="Profile Photo")
-    st.markdown(f"**Company Name:** {company_name}")
-    st.markdown(f"**Username:** {username}")
-    st.markdown(f"**Responsible Person Name:** {st.session_state.responsible_name}")
-    st.markdown(f"**Responsible Person Contact:** {st.session_state.responsible_contact}")
-
-# --- Dashboard Tab ---
-else:
-    # Sidebar input for activity
-    st.sidebar.header("➕ Add Activity Data")
-    add_mode = st.sidebar.checkbox("Add Entry Mode", value=False)
-
-    if add_mode and not emission_factors.empty:
-        scope_options = emission_factors["scope"].dropna().unique()
-        selected_scope = st.sidebar.selectbox("Select Scope", scope_options)
-        filtered_df = emission_factors[emission_factors["scope"]==selected_scope]
-
-        if selected_scope=="Scope 3":
-            category_options = filtered_df["category"].dropna().unique()
-            selected_category = st.sidebar.selectbox("Select Scope 3 Category", category_options)
-            category_df = filtered_df[filtered_df["category"]==selected_category]
-            activity_options = category_df["activity"].dropna().unique()
-            selected_activity = st.sidebar.selectbox("Select Activity", activity_options)
-            activity_df = category_df[category_df["activity"]==selected_activity]
-        else:
-            selected_category = "-"
-            activity_options = filtered_df["activity"].dropna().unique()
-            selected_activity = st.sidebar.selectbox("Select Activity", activity_options)
-            activity_df = filtered_df[filtered_df["activity"]==selected_activity]
-
-        if not activity_df.empty:
-            unit = activity_df["unit"].values[0]
-            ef = activity_df["emission_factor"].values[0]
-        else:
-            unit = "-"
-            ef = 0
-
-        quantity = st.sidebar.number_input(f"Enter quantity ({unit})", min_value=0.0, format="%.4f")
-
-        if st.sidebar.button("Add Entry") and quantity>0 and ef>0:
-            emissions = quantity*ef
-            new_entry = {
-                "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "Scope": selected_scope,
-                "Category": selected_category,
-                "Activity": selected_activity,
-                "Quantity": quantity,
-                "Unit": unit,
-                "Emission Factor": ef,
-                "Emissions (tCO₂e)": emissions
-            }
-            st.session_state.emissions_log.append(new_entry)
-
-            # Update summary
-            summary = {"Scope 1":0,"Scope 2":0,"Scope 3":0}
-            for e in st.session_state.emissions_log:
-                summary[e["Scope"]] += e["Emissions (tCO₂e)"]
-            st.session_state.emissions_summary = summary
-
-    # --- Main Dashboard Display ---
-    col1, col2 = st.columns([1,2])
-
-    with col1:
-        st.subheader("📅 Latest Emission Entry")
-        if st.session_state.emissions_log:
-            latest = st.session_state.emissions_log[-1]
-            for k,v in latest.items():
-                st.markdown(f"- {k}: {v}")
-        else:
-            st.info("No data yet. Add from sidebar.")
-
-    with col2:
-        st.subheader("📊 Emission Breakdown by Scope")
-        chart_df = pd.DataFrame.from_dict(st.session_state.emissions_summary, orient="index", columns=["Emissions"])
-        chart_df = chart_df.reset_index().rename(columns={"index":"Scope"})
-        chart_df = chart_df[chart_df["Emissions"]>0]
-
-        if not chart_df.empty:
-            fig = px.pie(chart_df, names="Scope", values="Emissions", color_discrete_sequence=px.colors.sequential.Purples_r, hole=0.45)
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("No data to show chart.")
-
-    # --- Emission Log ---
-    if st.session_state.emissions_log:
-        st.subheader("📂 Emissions Log")
-        log_df = pd.DataFrame(st.session_state.emissions_log)
-        log_df.index = range(1,len(log_df)+1)
-
-        selected_rows = st.multiselect("Select rows to delete", options=log_df.index.tolist(), default=[])
-        if st.button("Delete Selected Rows") and selected_rows:
-            log_df = log_df.drop(index=selected_rows)
-            st.session_state.emissions_log = log_df.to_dict(orient="records")
-
-            summary = {"Scope 1":0,"Scope 2":0,"Scope 3":0}
-            for e in st.session_state.emissions_log:
-                summary[e["Scope"]] += e["Emissions (tCO₂e)"]
-            st.session_state.emissions_summary = summary
-
-        total_row = pd.DataFrame([{
-            "Timestamp":"-",
-            "Scope":"Total",
-            "Category":"-",
-            "Activity":"-",
-            "Quantity":log_df["Quantity"].sum(),
-            "Unit":"",
-            "Emission Factor":"-",
-            "Emissions (tCO₂e)":log_df["Emissions (tCO₂e)"].sum()
-        }])
-        final_df = pd.concat([log_df,total_row], ignore_index=True)
-        final_df.index = range(1,len(final_df)+1)
-        st.dataframe(final_df, use_container_width=True)
+    if selected_scope=="Scope 3":
+        category_options = filtered_df["category"].dropna().unique()
+        selected_category = st.sidebar.selectbox("Select Scope 3 Category", category_options)
+        category_df = filtered_df[filtered_df["category"]==selected_category]
+        activity_options = category_df["activity"].dropna().unique()
+        selected_activity = st.sidebar.selectbox("Select Activity", activity_options)
+        activity_df = category_df[category_df["activity"]==selected_activity]
     else:
-        st.info("No emission log data yet.")
+        selected_category = "-"
+        activity_options = filtered_df["activity"].dropna().unique()
+        selected_activity = st.sidebar.selectbox("Select Activity", activity_options)
+        activity_df = filtered_df[filtered_df["activity"]==selected_activity]
+
+    if not activity_df.empty:
+        unit = activity_df["unit"].values[0]
+        ef = activity_df["emission_factor"].values[0]
+    else:
+        unit = "-"
+        ef = 0
+
+    quantity = st.sidebar.number_input(f"Enter quantity ({unit})", min_value=0.0, format="%.4f")
+
+    if st.sidebar.button("Add Entry") and quantity>0 and ef>0:
+        emissions = quantity*ef
+        new_entry = {
+            "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "Scope": selected_scope,
+            "Category": selected_category,
+            "Activity": selected_activity,
+            "Quantity": quantity,
+            "Unit": unit,
+            "Emission Factor": ef,
+            "Emissions (tCO₂e)": emissions
+        }
+        st.session_state.emissions_log.append(new_entry)
+
+        # Update summary
+        summary = {"Scope 1":0,"Scope 2":0,"Scope 3":0}
+        for e in st.session_state.emissions_log:
+            summary[e["Scope"]] += e["Emissions (tCO₂e)"]
+        st.session_state.emissions_summary = summary
+
+# --- Main Dashboard ---
+col1, col2 = st.columns([1,2])
+
+with col1:
+    st.subheader("📅 Latest Emission Entry")
+    if st.session_state.emissions_log:
+        latest = st.session_state.emissions_log[-1]
+        for k,v in latest.items():
+            st.markdown(f"- {k}: {v}")
+    else:
+        st.info("No data yet. Add from sidebar.")
+
+with col2:
+    st.subheader("📊 Emission Breakdown by Scope")
+    chart_df = pd.DataFrame.from_dict(st.session_state.emissions_summary, orient="index", columns=["Emissions"])
+    chart_df = chart_df.reset_index().rename(columns={"index":"Scope"})
+    chart_df = chart_df[chart_df["Emissions"]>0]
+
+    if not chart_df.empty:
+        fig = px.pie(chart_df, names="Scope", values="Emissions",
+                     color_discrete_sequence=px.colors.sequential.Purples_r, hole=0.45)
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No data to show chart.")
+
+# --- Emission Log ---
+if st.session_state.emissions_log:
+    st.subheader("📂 Emissions Log")
+    log_df = pd.DataFrame(st.session_state.emissions_log)
+    log_df.index = range(1,len(log_df)+1)
+
+    selected_rows = st.multiselect("Select rows to delete", options=log_df.index.tolist(), default=[])
+    if st.button("Delete Selected Rows") and selected_rows:
+        log_df = log_df.drop(index=selected_rows)
+        st.session_state.emissions_log = log_df.to_dict(orient="records")
+
+        summary = {"Scope 1":0,"Scope 2":0,"Scope 3":0}
+        for e in st.session_state.emissions_log:
+            summary[e["Scope"]] += e["Emissions (tCO₂e)"]
+        st.session_state.emissions_summary = summary
+
+    total_row = pd.DataFrame([{
+        "Timestamp":"-",
+        "Scope":"Total",
+        "Category":"-",
+        "Activity":"-",
+        "Quantity":log_df["Quantity"].sum(),
+        "Unit":"",
+        "Emission Factor":"-",
+        "Emissions (tCO₂e)":log_df["Emissions (tCO₂e)"].sum()
+    }])
+    final_df = pd.concat([log_df,total_row], ignore_index=True)
+    final_df.index = range(1,len(final_df)+1)
+    st.dataframe(final_df, use_container_width=True)
+else:
+    st.info("No emission log data yet.")

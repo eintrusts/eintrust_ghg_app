@@ -25,24 +25,23 @@ if "emissions_log" not in st.session_state:
 SHAREPOINT_URL = "https://eintrusts.sharepoint.com/sites/EinTrust"
 USERNAME = "your_service_account@eintrusts.com"
 PASSWORD = "your_password"
-TARGET_FOLDER = "/sites/EinTrust/Shared Documents/ClientData"
-CREDENTIALS_FILE_CSV = "client_credentials.csv"    # CSV option
-CREDENTIALS_FILE_XLSX = "client_credentials.xlsx"  # Excel option
+TARGET_FOLDER = "/sites/EinTrust/Documents/General/Organisation/Clients Data"
+CREDENTIALS_FILE_XLSX = "Clients Login Details.xls"
 ctx = ClientContext(SHAREPOINT_URL).with_credentials(UserCredential(USERNAME, PASSWORD))
 
 # --- Load Client Credentials from SharePoint ---
 def load_client_credentials():
-    for file_name, reader in [(CREDENTIALS_FILE_CSV, pd.read_csv), (CREDENTIALS_FILE_XLSX, pd.read_excel)]:
-        try:
-            file = ctx.web.get_file_by_server_relative_url(f"{TARGET_FOLDER}/{file_name}")
-            file_content = file.download().execute_query()
-            buffer = io.BytesIO(file_content.content)
-            df = reader(buffer)
-            return df
-        except:
-            continue
-    st.error("Failed to load client credentials from SharePoint. Please upload CSV or Excel in ClientData folder.")
-    return pd.DataFrame(columns=["Company Name","Username"])
+    try:
+        file = ctx.web.get_file_by_server_relative_url(f"{TARGET_FOLDER}/{CREDENTIALS_FILE_XLSX}")
+        file_content = file.download().execute_query()
+        buffer = io.BytesIO(file_content.content)
+        df = pd.read_excel(buffer)
+        # Ensure columns are correct
+        df = df.rename(columns=lambda x: x.strip())
+        return df
+    except:
+        st.error("Failed to load client credentials from SharePoint. Please check the folder and file name.")
+        return pd.DataFrame(columns=["Company Name","Username"])
 
 credentials_df = load_client_credentials()
 

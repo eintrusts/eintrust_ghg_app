@@ -5,7 +5,7 @@ from datetime import datetime, date
 import io
 
 # ---------------------------
-# Config & Dark Theme CSS with Enterprise Dashboard Look
+# Config & Dark Theme CSS with professional dashboard look
 # ---------------------------
 st.set_page_config(page_title="EinTrust Dashboard", page_icon="🌍", layout="wide")
 st.markdown("""
@@ -36,10 +36,6 @@ html, body, [class*="css"] {
 .kpi:hover {
     transform: scale(1.05);
     box-shadow: 0 8px 20px rgba(0,0,0,0.6);
-}
-.kpi-icon {
-    font-size: 28px;
-    margin-bottom: 5px;
 }
 .kpi-value {
     font-size: 28px;
@@ -186,7 +182,6 @@ def render_ghg_dashboard(include_data=True):
     
     kpis = calculate_kpis()
     SCOPE_COLORS = {"Scope 1": "#81c784", "Scope 2": "#4db6ac", "Scope 3": "#aed581"}
-    ICONS = {"Total Quantity": "🌱", "Scope 1": "🔥", "Scope 2": "⚡", "Scope 3": "✈️"}
 
     c1, c2, c3, c4 = st.columns(4)
     for col, label, value, color in zip(
@@ -197,7 +192,6 @@ def render_ghg_dashboard(include_data=True):
     ):
         col.markdown(f"""
         <div class='kpi'>
-            <div class='kpi-icon'>{ICONS[label]}</div>
             <div class='kpi-value' style='color:{color}'>{format_indian(value)}</div>
             <div class='kpi-unit'>{kpis['Unit']}</div>
             <div class='kpi-label'>{label.lower()}</div>

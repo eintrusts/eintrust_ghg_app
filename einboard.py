@@ -162,84 +162,92 @@ SDG_COLORS = [
 ]
 
 # ---------------------------
-# GHG Dashboard
+# Employee Dashboard (fixed keys)
 # ---------------------------
-def calculate_kpis():
-    df = st.session_state.entries
-    summary = {"Scope 1": 0.0, "Scope 2": 0.0, "Scope 3": 0.0, "Total Quantity": 0.0, "Unit": "tCO₂e"}
-    if not df.empty:
-        for scope in ["Scope 1","Scope 2","Scope 3"]:
-            summary[scope] = df[df["Scope"]==scope]["Quantity"].sum()
-        summary["Total Quantity"] = df["Quantity"].sum()
-    return summary
+def render_employee_dashboard():
+    st.title("Employee Data & ESG Reporting")
 
-def render_ghg_dashboard(include_data=True, show_chart=True):
-    st.subheader("GHG Emissions")
-    kpis = calculate_kpis()
-    c1, c2, c3, c4 = st.columns(4)
-    for col, label, value, color in zip(
-        [c1, c2, c3, c4], 
-        ["Total Quantity", "Scope 1", "Scope 2", "Scope 3"],
-        [kpis['Total Quantity'], kpis['Scope 1'], kpis['Scope 2'], kpis['Scope 3']],
-        ["#ffffff", SCOPE_COLORS['Scope 1'], SCOPE_COLORS['Scope 2'], SCOPE_COLORS['Scope 3']]
-    ):
-        col.markdown(f"""
-        <div class='kpi'>
-            <div class='kpi-value' style='color:{color}'>{format_indian(value)}</div>
-            <div class='kpi-unit'>{kpis['Unit']}</div>
-            <div class='kpi-label'>{label.lower()}</div>
-        </div>
-        """, unsafe_allow_html=True)
+    # --- Workforce Profile ---
+    st.subheader("Workforce Profile")
+    st.markdown("**Number of Employees** (Permanent / Temporary / Total) – BRSR, GRI 2-7, SASB")
+    if "num_employees" not in st.session_state.employee_data:
+        st.session_state.employee_data["num_employees"] = pd.DataFrame({
+            "": ["Male", "Female", "Total"],
+            "Permanent": [0,0,0],
+            "Temporary": [0,0,0],
+            "Total": [0,0,0]
+        })
+    st.session_state.employee_data["num_employees"] = st.data_editor(
+        st.session_state.employee_data["num_employees"], key="num_employees_editor"
+    )
 
-    if show_chart and not st.session_state.entries.empty:
-        df = st.session_state.entries.copy()
-        if "Month" not in df.columns:
-            df["Month"] = np.random.choice(months, len(df))
-        df["Month"] = pd.Categorical(df["Month"], categories=months, ordered=True)
-        monthly_trend = df.groupby(["Month","Scope"])["Quantity"].sum().reset_index()
-        st.subheader("Monthly GHG Emissions")
-        fig = px.bar(monthly_trend, x="Month", y="Quantity", color="Scope", barmode="stack",
-                     color_discrete_map=SCOPE_COLORS)
-        st.plotly_chart(fig, use_container_width=True)
+    st.markdown("**Age-wise Distribution** (<30 / 30-50 / >50) – BRSR, GRI 2-7")
+    if "age_distribution" not in st.session_state.employee_data:
+        st.session_state.employee_data["age_distribution"] = pd.DataFrame({
+            "Age Group": ["<30","30-50",">50"],
+            "Male": [0,0,0],
+            "Female": [0,0,0]
+        })
+    st.session_state.employee_data["age_distribution"] = st.data_editor(
+        st.session_state.employee_data["age_distribution"], key="age_distribution_editor"
+    )
 
-    if include_data:
-        scope = st.selectbox("Select scope", list(scope_activities.keys()))
-        activity = st.selectbox("Select activity / category", list(scope_activities[scope].keys()))
-        sub_options = scope_activities[scope][activity]
+    st.markdown("**Diversity and Inclusion**")
+    st.markdown("Employees from marginalized communities – BRSR P5, GRI 405")
+    if "marginalized" not in st.session_state.employee_data:
+        st.session_state.employee_data["marginalized"] = pd.DataFrame({
+            "": ["Male","Female","Total"], "Count":[0,0,0]
+        })
+    st.session_state.employee_data["marginalized"] = st.data_editor(
+        st.session_state.employee_data["marginalized"], key="marginalized_editor"
+    )
 
-        if scope != "Scope 3":
-            sub_activity = st.selectbox("Select sub-activity", list(sub_options.keys()))
-            st.info(sub_options[sub_activity])
-        else:
-            sub_activity = st.selectbox("Select sub-category", list(sub_options.keys()))
+    st.markdown("Persons with Disabilities – BRSR P5")
+    if "pwd" not in st.session_state.employee_data:
+        st.session_state.employee_data["pwd"] = pd.DataFrame({
+            "": ["Male","Female","Total"], "Count":[0,0,0]
+        })
+    st.session_state.employee_data["pwd"] = st.data_editor(
+        st.session_state.employee_data["pwd"], key="pwd_editor"
+    )
 
-        specific_item = None
-        if scope == "Scope 3":
-            items = scope_activities[scope][activity][sub_activity]
-            if items is not None:
-                specific_item = st.selectbox("Select specific item", items)
+    st.markdown("Women in Leadership – BRSR P5, GRI 405")
+    if "women_leadership" not in st.session_state.employee_data:
+        st.session_state.employee_data["women_leadership"] = pd.DataFrame({"Position":["Total"],"Count":[0]})
+    st.session_state.employee_data["women_leadership"] = st.data_editor(
+        st.session_state.employee_data["women_leadership"], key="women_leadership_editor"
+    )
 
-        unit = units_dict.get(sub_activity, "Number of flights" if sub_activity=="Air Travel" else "km / kg / tonnes")
-        quantity = st.number_input(f"Enter quantity ({unit})", min_value=0.0, format="%.2f")
-        uploaded_file = st.file_uploader("Upload CSV/XLS/XLSX/PDF for cross verification (optional)", type=["csv","xls","xlsx","pdf"])
+    st.markdown("Policy on Diversity and Inclusion – BRSR P5, GRI 405")
+    st.text_input("Upload / Share link of Policy Here", key="diversity_policy")
 
-        if st.button("Add Entry"):
-            new_entry = {
-                "Scope": scope,
-                "Activity": activity,
-                "Sub-Activity": sub_activity,
-                "Specific Item": specific_item if specific_item else "",
-                "Quantity": quantity,
-                "Unit": unit
-            }
-            st.session_state.entries = pd.concat([st.session_state.entries, pd.DataFrame([new_entry])], ignore_index=True)
-            st.success("GHG entry added successfully!")
-            st.experimental_rerun()
+    # --- Retention & Turnover ---
+    st.subheader("Retention & Turnover")
+    st.text_input("Average Tenure of Employees", key="avg_tenure")
+    st.text_input("Employee Turnover Rate", key="turnover_rate")
 
-        if not st.session_state.entries.empty:
-            st.subheader("All entries")
-            display_df = st.session_state.entries.copy()
-            display_df["Quantity"] = display_df["Quantity"].apply(lambda x: format_indian(x))
-            st.dataframe(display_df)
-            csv = display_df.to_csv(index=False).encode('utf-8')
-            st.download_button("Download all entries as CSV", csv, "ghg_entries.csv", "text/csv")
+    # --- Training & Development ---
+    st.subheader("Training and Development")
+    st.text_input("Type of Trainings", key="training_type")
+    if "employees_trained" not in st.session_state.employee_data:
+        st.session_state.employee_data["employees_trained"] = pd.DataFrame({
+            "": ["Male","Female","Total"], "Count":[0,0,0]
+        })
+    st.session_state.employee_data["employees_trained"] = st.data_editor(
+        st.session_state.employee_data["employees_trained"], key="employees_trained_editor"
+    )
+    st.text_input("Total Training Hours", key="training_hours")
+
+    # --- Employee Welfare & Engagement ---
+    st.subheader("Employee Welfare & Engagement")
+    st.selectbox("Employee Engagement Survey Done?", ["Yes","No"], key="engagement_survey")
+    st.text_input("Parental Leave Policy", key="parental_leave")
+    if "benefits" not in st.session_state.employee_data:
+        st.session_state.employee_data["benefits"] = pd.DataFrame({
+            "Benefit":["PF/Retirement Benefit","Health Insurance","Paid Leave Benefits"],
+            "Male":[0,0,0],
+            "Female":[0,0,0]
+        })
+    st.session_state.employee_data["benefits"] = st.data_editor(
+        st.session_state.employee_data["benefits"], key="benefits_editor"
+    )

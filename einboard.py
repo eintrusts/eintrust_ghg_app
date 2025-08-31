@@ -36,6 +36,15 @@ html, body, [class*="css"] { font-family: 'Roboto', sans-serif; }
 .sdg-percent { font-size: 14px; margin-bottom: 10px; }
 .sdg-slider { width: 100%; }
 
+.table-container {
+    background: #12131a;
+    border-radius: 10px;
+    padding: 10px;
+    color: white;
+    margin-bottom: 20px;
+    overflow-x: auto;
+}
+
 @media (min-width: 768px) {
     .sdg-card { width: 220px; display: inline-block; }
 }
@@ -127,11 +136,9 @@ if "renewable_entries" not in st.session_state:
     st.session_state.renewable_entries = pd.DataFrame(columns=["Source","Location","Month","Energy_kWh","CO2e_kg","Type"])
 if "sdg_engagement" not in st.session_state:
     st.session_state.sdg_engagement = {i:0 for i in range(1,18)}
-if "employee_data" not in st.session_state:
-    st.session_state.employee_data = {}
 
 # ---------------------------
-# SDG Constants
+# Constants
 # ---------------------------
 SDG_LIST = [
     "No Poverty", "Zero Hunger", "Good Health & Wellbeing", "Quality Education", "Gender Equality",
@@ -147,97 +154,11 @@ SDG_COLORS = [
 ]
 
 # ---------------------------
-# Employee Page
-# ---------------------------
-def render_employee_dashboard():
-    st.title("Employee Data & ESG Reporting")
-
-    # --- Workforce Profile ---
-    st.subheader("Workforce Profile")
-    st.markdown("**Number of Employees (Permanent / Temporary / Total)** – BRSR, GRI 2-7, SASB")
-    if "num_employees" not in st.session_state.employee_data:
-        st.session_state.employee_data["num_employees"] = pd.DataFrame({
-            "": ["Male", "Female", "Total"],
-            "Permanent": [0,0,0],
-            "Temporary": [0,0,0],
-            "Total": [0,0,0]
-        })
-    st.session_state.employee_data["num_employees"] = st.data_editor(
-        st.session_state.employee_data["num_employees"], key="num_emp"
-    )
-
-    st.markdown("**Age-wise Distribution (<30 / 30-50 / >50)** – BRSR, GRI 2-7")
-    if "age_distribution" not in st.session_state.employee_data:
-        st.session_state.employee_data["age_distribution"] = pd.DataFrame({
-            "Age Group": ["<30","30-50",">50"],
-            "Male": [0,0,0],
-            "Female": [0,0,0]
-        })
-    st.session_state.employee_data["age_distribution"] = st.data_editor(
-        st.session_state.employee_data["age_distribution"], key="age_dist"
-    )
-
-    st.markdown("**Diversity and Inclusion**")
-    st.markdown("Employees from marginalized communities – BRSR P5, GRI 405")
-    if "marginalized" not in st.session_state.employee_data:
-        st.session_state.employee_data["marginalized"] = pd.DataFrame({
-            "": ["Male","Female","Total"], "Count":[0,0,0]
-        })
-    st.session_state.employee_data["marginalized"] = st.data_editor(st.session_state.employee_data["marginalized"], key="marg")
-
-    st.markdown("Persons with Disabilities – BRSR P5")
-    if "pwd" not in st.session_state.employee_data:
-        st.session_state.employee_data["pwd"] = pd.DataFrame({
-            "": ["Male","Female","Total"], "Count":[0,0,0]
-        })
-    st.session_state.employee_data["pwd"] = st.data_editor(st.session_state.employee_data["pwd"], key="pwd")
-
-    st.markdown("Women in Leadership – BRSR P5, GRI 405")
-    if "women_leadership" not in st.session_state.employee_data:
-        st.session_state.employee_data["women_leadership"] = pd.DataFrame({"Position":["Total"],"Count":[0]})
-    st.session_state.employee_data["women_leadership"] = st.data_editor(st.session_state.employee_data["women_leadership"], key="women_lead")
-
-    st.markdown("Policy on Diversity and Inclusion – BRSR P5, GRI 405")
-    st.text_input("Upload / Share link of Policy Here", key="diversity_policy")
-
-    # --- Retention & Turnover ---
-    st.subheader("Retention & Turnover")
-    st.markdown("Average Tenure of Employees – BRSR P5")
-    st.number_input("Average Tenure (years)", min_value=0.0, key="avg_tenure")
-    st.markdown("Employee Turnover Rate – BRSR P5, GRI 405")
-    st.number_input("Turnover Rate (%)", min_value=0.0, max_value=100.0, key="turnover_rate")
-
-    # --- Training & Development ---
-    st.subheader("Training & Development")
-    st.markdown("Type of Trainings – GRI 405")
-    st.text_area("List training types", key="training_types")
-    st.markdown("Number of Employees Trained – BRSR P5, GRI 404")
-    if "trained_employees" not in st.session_state.employee_data:
-        st.session_state.employee_data["trained_employees"] = pd.DataFrame({
-            "": ["Male","Female","Total"], "Count":[0,0,0]
-        })
-    st.session_state.employee_data["trained_employees"] = st.data_editor(
-        st.session_state.employee_data["trained_employees"], key="trained_emp"
-    )
-    st.markdown("Total Training Hours – BRSR P5, GRI 404")
-    st.number_input("Total Training Hours", min_value=0.0, key="training_hours")
-
-    # --- Employee Welfare & Engagement ---
-    st.subheader("Employee Welfare & Engagement")
-    st.markdown("Employee Engagement Survey Done? – BRSR P5")
-    st.selectbox("Survey Done", ["Yes","No"], key="engagement_survey")
-    st.markdown("Parental Leave Policy – BRSR P5")
-    st.text_input("Details of Policy", key="parental_leave")
-    st.markdown("Benefits Provided – GRI 201, GRI 401, SASB, BRSR P3, BRSR P5")
-    st.text_area("Benefits (PF/Retirement, Health Insurance, Paid Leave)", key="benefits")
-
-# ---------------------------
 # SDG Dashboard
 # ---------------------------
 def render_sdg_dashboard():
     st.title("Sustainable Development Goals (SDGs)")
     st.subheader("Company Engagement by SDG")
-
     num_cols = 4
     rows = (len(SDG_LIST) + num_cols - 1) // num_cols
     idx = 0
@@ -249,8 +170,6 @@ def render_sdg_dashboard():
             sdg_name = SDG_LIST[idx]
             sdg_color = SDG_COLORS[idx]
             sdg_number = idx + 1
-
-            # Engagement slider inside the card
             engagement = st.session_state.sdg_engagement.get(sdg_number, 0)
             with cols[c]:
                 st.markdown(f"""
@@ -265,19 +184,106 @@ def render_sdg_dashboard():
             idx += 1
 
 # ---------------------------
+# Employee Page
+# ---------------------------
+def render_employee_page():
+    st.title("Employee Information & Workforce Profile")
+    
+    # Workforce Profile
+    st.subheader("Workforce Profile")
+    st.markdown("""
+    <div class='table-container'>
+    <b>Number of Employees</b> (Permanent / Temporary / Total)
+    <table>
+        <tr><th></th><th>Male</th><th>Female</th><th>Total</th></tr>
+        <tr><td>Employees</td><td>0</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class='table-container'>
+    <b>Age-wise Distribution</b> (<30 / 30-50 / >50)
+    <table>
+        <tr><th></th><th>Male</th><th>Female</th></tr>
+        <tr><td><30</td><td>0</td><td>0</td></tr>
+        <tr><td>30-50</td><td>0</td><td>0</td></tr>
+        <tr><td>>50</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Diversity & Inclusion
+    st.subheader("Diversity and Inclusion")
+    st.markdown("""
+    <div class='table-container'>
+    <b>Number of Employees from Marginalized Communities</b>
+    <table>
+        <tr><th>Male</th><th>Female</th><th>Total</th></tr>
+        <tr><td>0</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class='table-container'>
+    <b>Persons with Disabilities</b>
+    <table>
+        <tr><th>Male</th><th>Female</th><th>Total</th></tr>
+        <tr><td>0</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class='table-container'>
+    <b>Women in Leadership</b> : 0
+    </div>
+    <div class='table-container'>
+    <b>Policy on Diversity and Inclusion</b> : If Yes, Upload/Share link here
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Retention & Turnover
+    st.subheader("Retention & Turnover")
+    st.markdown("""
+    <div class='table-container'>
+    <b>Average Tenure of Employees</b> : 0 years
+    <br><b>Employee Turnover Rate</b> : 0%
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Training & Development
+    st.subheader("Training & Development")
+    st.markdown("""
+    <div class='table-container'>
+    <b>Type of Trainings</b> : -
+    <br><b>Number of Employees Trained</b> (Male / Female / Total) : 0 / 0 / 0
+    <br><b>Total Training Hours</b> : 0
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Employee Welfare & Engagement
+    st.subheader("Employee Welfare & Engagement")
+    st.markdown("""
+    <div class='table-container'>
+    <b>Employee Engagement Survey Done?</b> : No
+    <br><b>Parental Leave Policy</b> : -
+    <br><b>Benefits Provided</b> :
+    <table>
+        <tr><th>PF/Retirement Benefit</th><th>Health Insurance</th><th>Paid Leave Benefits</th></tr>
+        <tr><td>0</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ---------------------------
 # Render Pages
 # ---------------------------
 if st.session_state.page == "Home":
     st.title("EinTrust Sustainability Dashboard")
-    st.info("Home KPIs and summary under development")
 elif st.session_state.page == "GHG":
     st.subheader("GHG Emissions page under construction")
 elif st.session_state.page == "Energy":
     st.subheader("Energy page under construction")
+elif st.session_state.page == "Employee":
+    render_employee_page()
 elif st.session_state.page == "SDG":
     render_sdg_dashboard()
-elif st.session_state.page == "Employee":
-    render_employee_dashboard()
 else:
     st.subheader(f"{st.session_state.page} section")
     st.info("This section is under development. Please select other pages from sidebar.")

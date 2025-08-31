@@ -23,121 +23,38 @@ if "page" not in st.session_state:
 # Helper Dictionaries
 # ---------------------------
 scope_activities = {
-    "Scope 1": {
-        "Stationary Combustion": {
-            "Diesel Generator": "Generator running on diesel for electricity",
-            "Petrol Generator": "Generator running on petrol for electricity",
-            "LPG Boiler": "Boiler or stove using LPG",
-            "Coal Boiler": "Boiler/furnace burning coal",
-            "Biomass Furnace": "Furnace burning wood/agricultural residue"
-        },
-        "Mobile Combustion": {
-            "Diesel Vehicle": "Truck/van running on diesel",
-            "Petrol Car": "Car/van running on petrol",
-            "CNG Vehicle": "Bus or delivery vehicle running on CNG",
-            "Diesel Forklift": "Forklift running on diesel",
-            "Petrol Two-Wheeler": "Scooter or bike running on petrol"
-        },
-        "Process Emissions": {
-            "Cement Production": "CO₂ from cement making",
-            "Steel Production": "CO₂ from steel processing",
-            "Brick Kiln": "CO₂ from brick firing",
-            "Textile Processing": "Emissions from dyeing/fabric processing",
-            "Chemical Manufacturing": "Emissions from chemical reactions",
-            "Food Processing": "Emissions from cooking/heating"
-        },
-        "Fugitive Emissions": {
-            "Refrigerant (HFC/HCFC)": "Gas leak from AC/refrigerator",
-            "Methane (CH₄)": "Methane leaks from storage/pipelines",
-            "SF₆": "Gas leak from electrical equipment"
-        }
-    },
-    "Scope 2": {
-        "Electricity Consumption": {"Grid Electricity": "Electricity bought from grid",
-                                    "Diesel Generator Electricity": "Electricity generated on-site with diesel"},
-        "Steam / Heat": {"Purchased Steam": "Steam bought from external supplier"},
-        "Cooling / Chilled Water": {"Purchased Cooling": "Cooling bought from supplier"}
-    },
-    "Scope 3": {
-        "Purchased Goods & Services": {
-            "Raw Materials": ["Cement", "Steel", "Chemicals", "Textile"],
-            "Packaging Materials": ["Cardboard", "Plastics", "Glass"],
-            "Office Supplies": ["Paper", "Ink", "Stationery"],
-            "Purchased Services": ["Printing", "Logistics", "Cleaning", "IT"]
-        },
-        "Business Travel": {
-            "Air Travel": None,
-            "Train Travel": None,
-            "Taxi / Cab / Auto": None
-        },
-        "Employee Commuting": {
-            "Two-Wheelers": None,
-            "Cars / Vans": None,
-            "Public Transport": None
-        },
-        "Waste Generated": {
-            "Landfill": None,
-            "Recycling": None,
-            "Composting / Biogas": None
-        },
-        "Upstream Transportation & Distribution": {
-            "Incoming Goods Transport": None,
-            "Third-party Logistics": None
-        },
-        "Downstream Transportation & Distribution": {
-            "Delivery to Customers": None,
-            "Retail / Distributor Transport": None
-        },
-        "Use of Sold Products": {"Product Use": None},
-        "End-of-Life Treatment": {"Recycling / Landfill": None}
-    }
+    "Scope 1": {"Stationary Combustion": {"Diesel Generator": "Generator running on diesel",
+                                          "Petrol Generator": "Generator running on petrol"},
+                "Mobile Combustion": {"Diesel Vehicle": "Truck/van running on diesel"}},
+    "Scope 2": {"Electricity Consumption": {"Grid Electricity": "Electricity bought from grid"}},
+    "Scope 3": {"Purchased Goods & Services": {"Raw Materials": ["Cement", "Steel"]}}
 }
 
 units_dict = {
-    "Diesel Generator": "Liters", "Petrol Generator": "Liters", "LPG Boiler": "Liters", 
-    "Coal Boiler": "kg", "Biomass Furnace": "kg", "Diesel Vehicle": "Liters", 
-    "Petrol Car": "Liters", "CNG Vehicle": "m³", "Diesel Forklift": "Liters", 
-    "Petrol Two-Wheeler": "Liters", "Cement Production": "Tonnes", "Steel Production": "Tonnes",
-    "Brick Kiln": "Tonnes", "Textile Processing": "Tonnes", "Chemical Manufacturing": "Tonnes",
-    "Food Processing": "Tonnes", "Refrigerant (HFC/HCFC)": "kg", "Methane (CH₄)": "kg",
-    "SF₆": "kg", "Grid Electricity": "kWh", "Diesel Generator Electricity": "kWh",
-    "Purchased Steam": "Tonnes", "Purchased Cooling": "kWh"
+    "Diesel Generator": "Liters", "Petrol Generator": "Liters",
+    "Diesel Vehicle": "Liters", "Grid Electricity": "kWh",
+    "Cement": "Tonnes", "Steel": "Tonnes"
 }
 
 # ---------------------------
 # Sidebar
 # ---------------------------
 with st.sidebar:
-    st.image("https://github.com/eintrusts/eintrust_ghg_app/raw/main/EinTrust%20%20logo.png", use_container_width=True)
-    st.markdown("---")
-
+    st.title("EinTrust")
     st.button("Home", on_click=lambda: st.session_state.update({"page": "Home"}))
-
     with st.expander("Environment", expanded=True):
         st.button("GHG", on_click=lambda: st.session_state.update({"page": "GHG"}))
-        st.button("Energy", on_click=lambda: st.session_state.update({"page": "Energy"}))
-        st.button("Water", on_click=lambda: st.session_state.update({"page": "Water"}))
-        st.button("Waste", on_click=lambda: st.session_state.update({"page": "Waste"}))
-        st.button("Biodiversity", on_click=lambda: st.session_state.update({"page": "Biodiversity"}))
-
-    with st.expander("Social", expanded=False):
+    with st.expander("Social"):
         st.button("Employee", on_click=lambda: st.session_state.update({"page": "Employee"}))
-        st.button("Health & Safety", on_click=lambda: st.session_state.update({"page": "Health & Safety"}))
-        st.button("CSR", on_click=lambda: st.session_state.update({"page": "CSR"}))
-
-    with st.expander("Governance", expanded=False):
-        st.button("Board", on_click=lambda: st.session_state.update({"page": "Board"}))
+    with st.expander("Governance"):
         st.button("Policies", on_click=lambda: st.session_state.update({"page": "Policies"}))
-        st.button("Compliance", on_click=lambda: st.session_state.update({"page": "Compliance"}))
-        st.button("Risk Management", on_click=lambda: st.session_state.update({"page": "Risk Management"}))
 
 # ---------------------------
 # Helper Functions
 # ---------------------------
 def format_indian(n):
     try:
-        n = float(n)
-        return "{:,.2f}".format(n)
+        return "{:,.2f}".format(float(n))
     except:
         return n
 
@@ -164,7 +81,7 @@ def render_dashboard(df_entries):
     c3.metric("Scope 2", format_indian(s2))
     c4.metric("Scope 3", format_indian(s3))
 
-    # Stacked bar chart (Month x Scope)
+    # Stacked bar chart
     trend_df = df.groupby(["Month","Scope"])["Quantity"].sum().reset_index()
     fig = px.bar(trend_df, x="Month", y="Quantity", color="Scope", barmode="stack", template="plotly_dark")
     st.plotly_chart(fig, use_container_width=True)
@@ -172,11 +89,49 @@ def render_dashboard(df_entries):
 # ---------------------------
 # Main Pages
 # ---------------------------
-st.title("🌍 EinTrust Dashboard")
 page = st.session_state.page
-
 if page == "Home":
     render_dashboard(st.session_state.entries)
+
 elif page == "GHG":
-    # Manual Entry
-    scope = st.selectbox("Select Scope", ["Scope 1",
+    st.subheader("🌍 Add GHG Entry")
+    scope = st.selectbox("Select Scope", ["Scope 1", "Scope 2", "Scope 3"])
+    activity = st.selectbox("Select Activity / Category", list(scope_activities[scope].keys()))
+    sub_options = scope_activities[scope][activity]
+    
+    if scope != "Scope 3":
+        sub_activity = st.selectbox("Select Sub-Activity", list(sub_options.keys()))
+        st.info(sub_options[sub_activity])
+        specific_item = None
+    else:
+        sub_activity = st.selectbox("Select Sub-Category", list(sub_options.keys()))
+        items = sub_options[sub_activity]
+        specific_item = st.selectbox("Select Specific Item", items) if items is not None else None
+
+    unit = units_dict.get(specific_item or sub_activity, "")
+    quantity = st.number_input(f"Enter Quantity ({unit})", min_value=0.0, format="%.2f")
+    date = st.date_input("Date of Entry", datetime.today())
+
+    uploaded_file = st.file_uploader("Upload Bill / File (CSV/XLS/XLSX/PDF)", type=["csv","xls","xlsx","pdf"])
+
+    if st.button("Add Manual Entry"):
+        new_entry = {
+            "Scope": scope,
+            "Activity": activity,
+            "Sub-Activity": sub_activity,
+            "Specific Item": specific_item or "",
+            "Quantity": quantity,
+            "Unit": unit,
+            "Date": date
+        }
+        st.session_state.entries = pd.concat([st.session_state.entries, pd.DataFrame([new_entry])], ignore_index=True)
+        st.success("Manual entry added!")
+
+    if not st.session_state.entries.empty:
+        st.subheader("All Manual Entries")
+        display_df = st.session_state.entries.copy()
+        display_df["Quantity"] = display_df["Quantity"].apply(format_indian)
+        st.dataframe(display_df)
+
+        csv = display_df.to_csv(index=False).encode('utf-8')
+        st.download_button("Download Entries as CSV", csv, "ghg_entries.csv", "text/csv")

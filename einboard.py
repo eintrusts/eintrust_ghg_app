@@ -30,7 +30,6 @@ st.markdown(
 MONTH_ORDER = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"]
 
 def format_indian(n: float) -> str:
-    """Format integer part in Indian numbering system (no decimals)."""
     try:
         x = int(round(float(n)))
     except Exception:
@@ -101,9 +100,8 @@ if today.month == 4 and today.day == 1:
         st.session_state.last_reset_year = today.year
 
 # ---------------------------
-# SIDEBAR — Logo + Add Activity Data
+# Sidebar — Add Activity Data
 # ---------------------------
-st.sidebar.image("eintrust_logo.png", use_column_width=True)  # <-- Added Logo
 st.sidebar.header("➕ Add Activity Data")
 add_mode = st.sidebar.checkbox("Add Entry Mode", value=False)
 
@@ -186,7 +184,7 @@ if add_mode and emission_factors.empty:
         st.sidebar.success("Manual entry added.")
 
 # ---------------------------
-# Main dashboard header
+# Main dashboard
 # ---------------------------
 st.title("🌍 EinTrust GHG Dashboard")
 st.markdown("Estimate Scope 1, 2 and 3 emissions. Apr–Mar cycle. Dark energy-saving theme.")
@@ -254,14 +252,13 @@ if not df_log.empty:
     df_log["Timestamp"] = pd.to_datetime(df_log["Timestamp"], errors="coerce")
     df_log = df_log.dropna(subset=["Timestamp"])
     df_cycle = df_log[(df_log["Timestamp"].dt.date >= cycle_start) & (df_log["Timestamp"].dt.date <= cycle_end)].copy()
-
     if df_cycle.empty:
         st.info("No entries in the current Apr–Mar cycle yet.")
     else:
-        df_cycle["MonthLabel"] = df_cycle["Timestamp"].dt.strftime("%b")
-        df_cycle["MonthLabel"] = pd.Categorical(df_cycle["MonthLabel"], categories=MONTH_ORDER, ordered=True)
+        df_cycle["MonthLabel"] = pd.Categorical(df_cycle["Timestamp"].dt.strftime("%b"), categories=MONTH_ORDER, ordered=True)
         stacked = df_cycle.groupby(["MonthLabel", "Scope"])["Emissions (tCO₂e)"].sum().reset_index()
-        pivot = stacked.pivot(index="MonthLabel", columns="Scope", values="Emissions (tCO₂e)").reindex(MONTH_ORDER).fillna(0).reset_index()
+        pivot = stacked.pivot(index="MonthLabel", columns="Scope", values="Emissions (tCO₂e)").reindex(MONTH_ORDER).fillna(0)
+        pivot = pivot.reset_index()
         melt = pivot.melt(id_vars=["MonthLabel"], var_name="Scope", value_name="Emissions (tCO₂e)")
         fig_bar = px.bar(melt, x="MonthLabel", y="Emissions (tCO₂e)", color="Scope",
                          color_discrete_map=color_map, barmode="stack", template="plotly_dark")
@@ -288,8 +285,7 @@ if not df_log.empty:
 
 st.subheader("📜 Emissions Log")
 if st.session_state.emissions_log:
-    log_df = pd.DataFrame(st.session_state.emissions_log)
-    log_df = log_df.sort_values("Timestamp", ascending=False).reset_index(drop=True)
+    log_df = pd.DataFrame(st.session_state.emissions_log).sort_values("Timestamp", ascending=False).reset_index(drop=True)
     st.dataframe(log_df, use_container_width=True)
     st.download_button("📥 Download Current Log (CSV)", data=log_df.to_csv(index=False), file_name="emissions_log_current.csv", mime="text/csv")
 else:

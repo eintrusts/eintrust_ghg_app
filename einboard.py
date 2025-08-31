@@ -82,6 +82,15 @@ SDG_LIST = [
 SDG_COLORS = [ "#e5243b","#dda63a","#4c9f38","#c5192d","#ff3a21","#26bde2","#fcc30b","#a21942","#fd6925",
                "#dd1367","#fd9d24","#bf8b2e","#3f7e44","#0a97d9","#56c02b","#00689d","#19486a" ]
 
+scope_activities = {
+    "Scope 1": {"Stationary Combustion": {"Diesel Generator":"Generator running on diesel","Petrol Generator":"Generator running on petrol"},
+                "Mobile Combustion": {"Diesel Vehicle":"Truck/van running on diesel"}},
+    "Scope 2": {"Electricity Consumption": {"Grid Electricity":"Electricity from grid"}},
+    "Scope 3": {"Business Travel": {"Air Travel":None}}
+}
+
+units_dict = {"Diesel Generator":"Liters","Petrol Generator":"Liters","Diesel Vehicle":"Liters","Grid Electricity":"kWh"}
+
 # ---------------------------
 # Sidebar & Navigation
 # ---------------------------
@@ -125,23 +134,21 @@ with st.sidebar:
     sidebar_button("SDG")
 
 # ---------------------------
-# Functions to Update SDG automatically
+# SDG Update
 # ---------------------------
 def update_sdg_from_data():
-    # Simple example: map GHG, Energy, Water usage to SDGs
-    # You can customize mapping as needed
-    st.session_state.sdg_engagement[6] = min(100, int(st.session_state.water_entries["Freshwater_kL"].sum()/1000) if not st.session_state.water_entries.empty else 0)
-    st.session_state.sdg_engagement[7] = min(100, int((st.session_state.entries["Quantity"].sum() + st.session_state.renewable_entries["Energy_kWh"].sum())/10000) if not st.session_state.entries.empty else 0)
-    st.session_state.sdg_engagement[12] = min(100, int(st.session_state.water_entries["Recycled_kL"].sum()/500) if not st.session_state.water_entries.empty else 0)
-    st.session_state.sdg_engagement[13] = min(100, int(st.session_state.entries["Quantity"].sum()/1000) if not st.session_state.entries.empty else 0)
+    st.session_state.sdg_engagement[6] = min(100,int(st.session_state.water_entries["Freshwater_kL"].sum()/1000) if not st.session_state.water_entries.empty else 0)
+    st.session_state.sdg_engagement[7] = min(100,int((st.session_state.entries["Quantity"].sum() + st.session_state.renewable_entries["Energy_kWh"].sum())/10000) if not st.session_state.entries.empty else 0)
+    st.session_state.sdg_engagement[12] = min(100,int(st.session_state.water_entries["Recycled_kL"].sum()/500) if not st.session_state.water_entries.empty else 0)
+    st.session_state.sdg_engagement[13] = min(100,int(st.session_state.entries["Quantity"].sum()/1000) if not st.session_state.entries.empty else 0)
 
 # ---------------------------
-# Render Home Page (KPIs + Charts only)
+# Home Page (KPIs + Charts Only)
 # ---------------------------
 def render_home():
     st.title("EinTrust Sustainability Dashboard")
     
-    # --- GHG KPIs ---
+    # GHG KPIs
     df = st.session_state.entries
     total_ghg = df["Quantity"].sum() if not df.empty else 0
     scope1 = df[df["Scope"]=="Scope 1"]["Quantity"].sum() if not df.empty else 0
@@ -149,14 +156,14 @@ def render_home():
     scope3 = df[df["Scope"]=="Scope 3"]["Quantity"].sum() if not df.empty else 0
     st.subheader("GHG Emissions")
     c1,c2,c3,c4 = st.columns(4)
-    for col, label, value, color in zip([c1,c2,c3,c4],
-                                       ["Total Quantity","Scope 1","Scope 2","Scope 3"],
-                                       [total_ghg,scope1,scope2,scope3],
-                                       ["#ffffff",SCOPE_COLORS["Scope 1"],SCOPE_COLORS["Scope 2"],SCOPE_COLORS["Scope 3"]]):
+    for col,label,value,color in zip([c1,c2,c3,c4],
+                                     ["Total Quantity","Scope 1","Scope 2","Scope 3"],
+                                     [total_ghg,scope1,scope2,scope3],
+                                     ["#ffffff",SCOPE_COLORS["Scope 1"],SCOPE_COLORS["Scope 2"],SCOPE_COLORS["Scope 3"]]):
         col.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{color}'>{format_indian(value)}</div><div class='kpi-unit'>tCO₂e</div><div class='kpi-label'>{label.lower()}</div></div>",unsafe_allow_html=True)
     
-    # --- Energy KPIs ---
-    fossil_energy = st.session_state.entries["Quantity"].sum() if not df.empty else 0
+    # Energy KPIs
+    fossil_energy = df["Quantity"].sum() if not df.empty else 0
     renewable_energy = st.session_state.renewable_entries["Energy_kWh"].sum() if not st.session_state.renewable_entries.empty else 0
     total_energy = fossil_energy + renewable_energy
     st.subheader("Energy")
@@ -167,7 +174,7 @@ def render_home():
                                      ["#ffffff",ENERGY_COLORS["Fossil"],ENERGY_COLORS["Renewable"]]):
         col.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{color}'>{format_indian(value)}</div><div class='kpi-unit'>kWh</div><div class='kpi-label'>{label.lower()}</div></div>",unsafe_allow_html=True)
     
-    # --- Water KPIs ---
+    # Water KPIs
     total_fresh = st.session_state.water_entries["Freshwater_kL"].sum() if not st.session_state.water_entries.empty else 0
     total_recycled = st.session_state.water_entries["Recycled_kL"].sum() if not st.session_state.water_entries.empty else 0
     total_rain = st.session_state.water_entries["Rainwater_kL"].sum() if not st.session_state.water_entries.empty else 0
@@ -177,32 +184,74 @@ def render_home():
                                ["Freshwater Used (kL)","Water Recycled (kL)","Rainwater Harvested (kL)"],
                                [total_fresh,total_recycled,total_rain]):
         col.markdown(f"<div class='kpi'><div class='kpi-value'>{format_indian(value)}</div><div class='kpi-unit'>kL</div><div class='kpi-label'>{label}</div></div>",unsafe_allow_html=True)
-    
+
 # ---------------------------
-# Render GHG Page (with Input Form)
+# GHG Page
 # ---------------------------
 def render_ghg():
     st.title("GHG Emissions")
-    # --- existing GHG form code here ---
-    st.info("GHG form and results go here (retain your original input form and table).")
+    st.markdown("### Add GHG Data")
+    scope = st.selectbox("Select Scope", ["Scope 1","Scope 2","Scope 3"])
+    activity = st.selectbox("Select Activity", list(scope_activities[scope].keys()))
+    sub_activity = st.selectbox("Select Sub-Activity", list(scope_activities[scope][activity].keys()))
+    specific_item = scope_activities[scope][activity][sub_activity] if scope_activities[scope][activity][sub_activity] else sub_activity
+    month = st.selectbox("Select Month", months)
+    quantity = st.number_input(f"Quantity ({units_dict.get(specific_item,'Units')})", min_value=0.0, step=0.1)
+    if st.button("Add GHG Entry"):
+        st.session_state.entries = pd.concat([st.session_state.entries,
+                                              pd.DataFrame([{"Scope":scope,"Activity":activity,"Sub-Activity":sub_activity,"Specific Item":specific_item,"Quantity":quantity,"Unit":units_dict.get(specific_item,"Units"),"Month":month}])],
+                                             ignore_index=True)
+    if not st.session_state.entries.empty:
+        st.markdown("### GHG Entries")
+        st.dataframe(st.session_state.entries)
+        csv = st.session_state.entries.to_csv(index=False)
+        st.download_button("Download CSV", csv, "ghg_data.csv","text/csv")
 
 # ---------------------------
-# Render Energy Page (with Input Form)
+# Energy Page
 # ---------------------------
 def render_energy():
     st.title("Energy")
-    # --- existing Energy form code here ---
-    st.info("Energy form and results go here (retain your original input form and table).")
+    st.markdown("### Add Renewable Energy Data")
+    source = st.text_input("Energy Source (e.g., Solar, Wind)")
+    location = st.text_input("Location")
+    month = st.selectbox("Select Month", months)
+    energy_kwh = st.number_input("Energy Produced (kWh)", min_value=0.0, step=1.0)
+    co2e = st.number_input("CO2e Reduction (kg)", min_value=0.0, step=0.1)
+    type_energy = st.selectbox("Type", ["Renewable","Fossil"])
+    if st.button("Add Energy Entry"):
+        st.session_state.renewable_entries = pd.concat([st.session_state.renewable_entries,
+                                                       pd.DataFrame([{"Source":source,"Location":location,"Month":month,"Energy_kWh":energy_kwh,"CO2e_kg":co2e,"Type":type_energy}])],
+                                                      ignore_index=True)
+    if not st.session_state.renewable_entries.empty:
+        st.markdown("### Energy Entries")
+        st.dataframe(st.session_state.renewable_entries)
+        csv = st.session_state.renewable_entries.to_csv(index=False)
+        st.download_button("Download CSV", csv, "energy_data.csv","text/csv")
 
 # ---------------------------
-# Render Water Page (with Input Form)
+# Water Page
 # ---------------------------
 def render_water():
     st.title("Water Management")
-    st.info("Water form and results go here (retain your original input form and table).")
+    st.markdown("### Add Water Data")
+    month = st.selectbox("Select Month", months)
+    freshwater = st.number_input("Freshwater Used (kL)", min_value=0.0, step=0.1)
+    recycled = st.number_input("Water Recycled (kL)", min_value=0.0, step=0.1)
+    rainwater = st.number_input("Rainwater Harvested (kL)", min_value=0.0, step=0.1)
+    stp_etp = st.number_input("STP/ETP Capacity (kL/day)", min_value=0.0, step=0.1)
+    if st.button("Add Water Entry"):
+        st.session_state.water_entries = pd.concat([st.session_state.water_entries,
+                                                   pd.DataFrame([{"Month":month,"Freshwater_kL":freshwater,"Recycled_kL":recycled,"Rainwater_kL":rainwater,"STP_ETP_kL":stp_etp}])],
+                                                  ignore_index=True)
+    if not st.session_state.water_entries.empty:
+        st.markdown("### Water Entries")
+        st.dataframe(st.session_state.water_entries)
+        csv = st.session_state.water_entries.to_csv(index=False)
+        st.download_button("Download CSV", csv, "water_data.csv","text/csv")
 
 # ---------------------------
-# Render SDG Page
+# SDG Page
 # ---------------------------
 def render_sdg():
     st.title("Sustainable Development Goals (SDGs)")

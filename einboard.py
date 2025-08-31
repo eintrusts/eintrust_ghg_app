@@ -20,48 +20,50 @@ if "emissions_summary" not in st.session_state:
 if "emissions_log" not in st.session_state:
     st.session_state.emissions_log = []
 
-# --- Sidebar Navigation ---
-nav_choice = st.sidebar.radio("Navigation", ["Dashboard", "Profile"], index=0)
+# Profile session state
+if "profile_photo" not in st.session_state:
+    st.session_state.profile_photo = None
+if "responsible_name" not in st.session_state:
+    st.session_state.responsible_name = ""
+if "responsible_contact" not in st.session_state:
+    st.session_state.responsible_contact = ""
 
-# --- Profile Section ---
-if nav_choice == "Profile":
-    st.sidebar.header("👤 Profile")
-    
-    if "profile_photo" not in st.session_state:
-        st.session_state.profile_photo = None
-    if "responsible_name" not in st.session_state:
-        st.session_state.responsible_name = ""
-    if "responsible_contact" not in st.session_state:
-        st.session_state.responsible_contact = ""
+# --- Sidebar ---
+st.sidebar.header("👤 Profile Settings")
+uploaded_photo = st.sidebar.file_uploader("Upload Profile Photo", type=["png","jpg","jpeg"])
+if uploaded_photo:
+    st.session_state.profile_photo = uploaded_photo
 
-    # Upload photo
-    uploaded_photo = st.sidebar.file_uploader("Upload Profile Photo", type=["png","jpg","jpeg"])
-    if uploaded_photo:
-        st.session_state.profile_photo = uploaded_photo
+company_name = "EinTrust Pvt Ltd"
+username = "mayur123"
+st.sidebar.text_input("Company Name", company_name, disabled=True)
+st.sidebar.text_input("Username", username, disabled=True)
 
-    # Display photo if uploaded
-    if st.session_state.profile_photo:
-        st.sidebar.image(st.session_state.profile_photo, use_column_width=True, caption="Profile Photo")
-
-    # Company Name & Username (read-only)
-    company_name = "EinTrust Pvt Ltd"
-    username = "mayur123"
-    st.sidebar.text_input("Company Name", company_name, disabled=True)
-    st.sidebar.text_input("Username", username, disabled=True)
-
-    # Responsible person (editable)
-    st.session_state.responsible_name = st.sidebar.text_input(
-        "Responsible Person Name", st.session_state.responsible_name
-    )
-    st.session_state.responsible_contact = st.sidebar.text_input(
-        "Responsible Person Contact", st.session_state.responsible_contact
-    )
+st.session_state.responsible_name = st.sidebar.text_input(
+    "Responsible Person Name", st.session_state.responsible_name
+)
+st.session_state.responsible_contact = st.sidebar.text_input(
+    "Responsible Person Contact", st.session_state.responsible_contact
+)
 
 # --- Dashboard ---
-else:
+col_profile, col_dashboard = st.columns([1,3])
+
+with col_profile:
+    st.subheader("👤 Profile")
+    if st.session_state.profile_photo:
+        st.image(st.session_state.profile_photo, use_column_width=True, caption="Profile Photo")
+    st.markdown(f"**Company Name:** {company_name}")
+    st.markdown(f"**Username:** {username}")
+    st.markdown(f"**Responsible Person Name:** {st.session_state.responsible_name}")
+    st.markdown(f"**Responsible Person Contact:** {st.session_state.responsible_contact}")
+
+with col_dashboard:
+    st.subheader("📊 Emission Dashboard")
+
+    # Add Activity Data
     st.sidebar.header("➕ Add Activity Data")
     add_mode = st.sidebar.checkbox("Add Entry Mode", value=False)
-
     if add_mode:
         scope_options = emission_factors["scope"].dropna().unique()
         selected_scope = st.sidebar.selectbox("Select Scope", scope_options)
@@ -109,31 +111,27 @@ else:
                 summary[e["Scope"]] += e["Emissions (tCO₂e)"]
             st.session_state.emissions_summary = summary
 
-    # --- Dashboard Columns ---
-    col1,col2 = st.columns([1,2])
+    # Dashboard Columns
+    st.subheader("📅 Latest Emission Entry")
+    if st.session_state.emissions_log:
+        latest = st.session_state.emissions_log[-1]
+        for k,v in latest.items():
+            st.markdown(f"- {k}: {v}")
+    else:
+        st.info("No data yet. Add from sidebar.")
 
-    with col1:
-        st.subheader("📅 Latest Emission Entry")
-        if st.session_state.emissions_log:
-            latest = st.session_state.emissions_log[-1]
-            for k,v in latest.items():
-                st.markdown(f"- {k}: {v}")
-        else:
-            st.info("No data yet. Add from sidebar.")
+    st.subheader("📊 Emission Breakdown by Scope")
+    chart_df = pd.DataFrame.from_dict(st.session_state.emissions_summary, orient="index", columns=["Emissions"])
+    chart_df = chart_df.reset_index().rename(columns={"index":"Scope"})
+    chart_df = chart_df[chart_df["Emissions"]>0]
 
-    with col2:
-        st.subheader("📊 Emission Breakdown by Scope")
-        chart_df = pd.DataFrame.from_dict(st.session_state.emissions_summary, orient="index", columns=["Emissions"])
-        chart_df = chart_df.reset_index().rename(columns={"index":"Scope"})
-        chart_df = chart_df[chart_df["Emissions"]>0]
+    if not chart_df.empty:
+        fig = px.pie(chart_df, names="Scope", values="Emissions", color_discrete_sequence=px.colors.sequential.Purples_r, hole=0.45)
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No data to show chart.")
 
-        if not chart_df.empty:
-            fig = px.pie(chart_df, names="Scope", values="Emissions", color_discrete_sequence=px.colors.sequential.Purples_r, hole=0.45)
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("No data to show chart.")
-
-    # --- Emission Log ---
+    # Emission Log
     if st.session_state.emissions_log:
         st.subheader("📂 Emissions Log")
         log_df = pd.DataFrame(st.session_state.emissions_log)

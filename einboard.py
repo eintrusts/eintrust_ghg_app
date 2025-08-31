@@ -149,7 +149,6 @@ SDG_COLORS = [
 # ---------------------------
 def render_sdg_dashboard():
     st.title("Sustainable Development Goals (SDGs)")
-    st.subheader("Company Engagement by SDG")
 
     num_cols = 4
     rows = (len(SDG_LIST) + num_cols - 1) // num_cols

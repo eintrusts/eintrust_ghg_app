@@ -182,60 +182,57 @@ def render_sdg_dashboard():
 def render_employee_page():
     st.title("Employee Information")
     
-    st.markdown("### Workforce Profile")
-    col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
-    with col1: st.write("Number of Employees")
-    with col2: permanent_male = st.number_input("Permanent Male", min_value=0, value=0, key="perm_male")
-    with col3: permanent_female = st.number_input("Permanent Female", min_value=0, value=0, key="perm_female")
-    with col4: temporary_male = st.number_input("Temporary Male", min_value=0, value=0, key="temp_male")
-    with col5: temporary_female = st.number_input("Temporary Female", min_value=0, value=0, key="temp_female")
-    with col6: total_male = permanent_male + temporary_male; st.write(f"Total Male: {total_male}")
-    with col7: total_female = permanent_female + temporary_female; st.write(f"Total Female: {total_female}")
-    
-    st.markdown("### Age-wise Distribution")
-    age_col1, age_col2, age_col3, age_col4, age_col5, age_col6, age_col7 = st.columns(7)
-    with age_col1: st.write("<30")
-    with age_col2: under30_male = st.number_input("Under 30 Male", min_value=0, value=0, key="u30_male")
-    with age_col3: under30_female = st.number_input("Under 30 Female", min_value=0, value=0, key="u30_female")
-    with age_col4: age30_50_male = st.number_input("30-50 Male", min_value=0, value=0, key="30_50_male")
-    with age_col5: age30_50_female = st.number_input("30-50 Female", min_value=0, value=0, key="30_50_female")
-    with age_col6: above50_male = st.number_input(">50 Male", min_value=0, value=0, key="above50_male")
-    with age_col7: above50_female = st.number_input(">50 Female", min_value=0, value=0, key="above50_female")
-    
-    st.markdown("### Diversity and Inclusion")
-    div_male = st.number_input("Employees from marginalized communities Male", min_value=0, value=0, key="div_male")
-    div_female = st.number_input("Employees from marginalized communities Female", min_value=0, value=0, key="div_female")
-    st.write(f"Total: {div_male + div_female}")
-    
-    pwd_male = st.number_input("Persons with Disabilities Male", min_value=0, value=0, key="pwd_male")
-    pwd_female = st.number_input("Persons with Disabilities Female", min_value=0, value=0, key="pwd_female")
-    st.write(f"Total: {pwd_male + pwd_female}")
-    
-    women_leadership = st.number_input("Women in Leadership", min_value=0, value=0, key="women_leadership")
-    policy_diversity = st.text_input("Policy on Diversity & Inclusion (Upload/Link)", value="", key="policy_diversity")
-    
-    st.markdown("### Retention & Turnover")
-    avg_tenure = st.number_input("Average Tenure of Employees (years)", min_value=0.0, value=0.0, key="avg_tenure")
-    turnover_rate = st.number_input("Employee Turnover Rate (%)", min_value=0.0, value=0.0, key="turnover_rate")
-    
-    st.markdown("### Training & Development")
-    training_type = st.text_input("Type of Trainings Provided", value="", key="training_type")
-    trained_male = st.number_input("Number of Employees Trained Male", min_value=0, value=0, key="trained_male")
-    trained_female = st.number_input("Number of Employees Trained Female", min_value=0, value=0, key="trained_female")
-    st.write(f"Total Trained: {trained_male + trained_female}")
-    total_training_hours = st.number_input("Total Training Hours", min_value=0, value=0, key="total_training_hours")
-    
-    st.markdown("### Employee Welfare & Engagement")
-    engagement_survey = st.checkbox("Employee Engagement Survey Done?", key="eng_survey")
-    parental_leave = st.checkbox("Parental Leave Policy in Place?", key="parental_leave")
-    
-    st.markdown("### Benefits Provided")
-    pf_male = st.checkbox("PF/Retirement Benefit Male", key="pf_male")
-    pf_female = st.checkbox("PF/Retirement Benefit Female", key="pf_female")
-    health_male = st.checkbox("Health Insurance Male", key="health_male")
-    health_female = st.checkbox("Health Insurance Female", key="health_female")
-    paid_leave_male = st.checkbox("Paid Leave Male", key="paid_leave_male")
-    paid_leave_female = st.checkbox("Paid Leave Female", key="paid_leave_female")
+    st.subheader("Workforce Profile")
+    st.text("Number of Employees (Permanent / Temporary / Total)")
+    st.dataframe(pd.DataFrame({
+        "": ["Male","Female","Male","Female","Male","Female"],
+        "Permanent": [0,0,0,0,0,0],
+        "Temporary": [0,0,0,0,0,0],
+        "Total": [0,0,0,0,0,0],
+        "Frameworks": ["BRSR, GRI 2-7, SASB"]*6
+    }))
+
+    st.text("Age-wise Distribution (<30 / 30-50 / >50)")
+    st.dataframe(pd.DataFrame({
+        "": ["Male","Female","Male","Female","Male","Female"],
+        "<30": [0,0,0,0,0,0],
+        "30-50": [0,0,0,0,0,0],
+        ">50": [0,0,0,0,0,0],
+        "Frameworks": ["BRSR, GRI 2-7"]*6
+    }))
+
+    st.subheader("Diversity and Inclusion")
+    st.dataframe(pd.DataFrame({
+        "": ["Male","Female","Total"],
+        "Employees from marginalized communities": [0,0,0],
+        "Persons with Disabilities": [0,0,0],
+        "Women in Leadership": ["#DIV/0!"],
+        "Policy on Diversity and Inclusion": ["If Yes, Upload/ Share link of Policy Here"],
+        "Frameworks": ["BRSR P5, GRI 405"]
+    }))
+
+    st.subheader("Retention & Turnover")
+    st.dataframe(pd.DataFrame({
+        "Avg. Tenure of Employees": [""]*2,
+        "Employee Turnover Rate": [""]*2,
+        "Frameworks": ["BRSR P5, GRI 405"]*2
+    }))
+
+    st.subheader("Training and Development")
+    st.dataframe(pd.DataFrame({
+        "Type of Trainings": [""]*2,
+        "Number of Employees Trained (Male/Female/Total)": ["0"]*2,
+        "Total Training Hours": ["0"]*2,
+        "Frameworks": ["BRSR P5, GRI 404"]*2
+    }))
+
+    st.subheader("Employee Welfare & Engagement")
+    st.dataframe(pd.DataFrame({
+        "Employee Engagement Survey Done?": [""]*2,
+        "Parental Leave Policy": [""]*2,
+        "Benefits Provided (PF/Retirement, Health Insurance, Paid Leave)": ["0"]*2,
+        "Frameworks": ["GRI 201, GRI 401, SASB, BRSR P3, BRSR P5"]*2
+    }))
 
 # ---------------------------
 # Render Pages

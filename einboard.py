@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime, date
+import io
 
 # ---------------------------
 # Config & Dark Theme CSS
@@ -70,18 +71,51 @@ if "page" not in st.session_state:
     st.session_state.page = "Home"
 
 # ---------------------------
-# Sidebar - fixed using selectbox
+# Sidebar (Fixed)
 # ---------------------------
 with st.sidebar:
     st.image("https://github.com/eintrusts/eintrust_ghg_app/raw/main/EinTrust%20%20logo.png", use_container_width=True)
     st.markdown("---")
     
-    page_options = ["Home", "GHG", "Energy", "Water", "Waste", "Biodiversity",
-                    "Employee", "Health & Safety", "CSR",
-                    "Board", "Policies", "Compliance", "Risk Management"]
-    
-    selected_page = st.selectbox("Select Page", page_options, index=page_options.index(st.session_state.page))
-    st.session_state.page = selected_page
+    # Home button
+    if st.button("Home", key="btn_home"):
+        st.session_state.page = "Home"
+
+    # Environment dropdown
+    env_exp = st.expander("Environment", expanded=True)
+    with env_exp:
+        if st.button("GHG", key="btn_ghg"):
+            st.session_state.page = "GHG"
+        if st.button("Energy", key="btn_energy"):
+            st.session_state.page = "Energy"
+        if st.button("Water", key="btn_water"):
+            st.session_state.page = "Water"
+        if st.button("Waste", key="btn_waste"):
+            st.session_state.page = "Waste"
+        if st.button("Biodiversity", key="btn_bio"):
+            st.session_state.page = "Biodiversity"
+
+    # Social dropdown
+    social_exp = st.expander("Social", expanded=False)
+    with social_exp:
+        if st.button("Employee", key="btn_employee"):
+            st.session_state.page = "Employee"
+        if st.button("Health & Safety", key="btn_hs"):
+            st.session_state.page = "Health & Safety"
+        if st.button("CSR", key="btn_csr"):
+            st.session_state.page = "CSR"
+
+    # Governance dropdown
+    gov_exp = st.expander("Governance", expanded=False)
+    with gov_exp:
+        if st.button("Board", key="btn_board"):
+            st.session_state.page = "Board"
+        if st.button("Policies", key="btn_policies"):
+            st.session_state.page = "Policies"
+        if st.button("Compliance", key="btn_compliance"):
+            st.session_state.page = "Compliance"
+        if st.button("Risk Management", key="btn_risk"):
+            st.session_state.page = "Risk Management"
 
 # ---------------------------
 # Main Content
@@ -89,8 +123,22 @@ with st.sidebar:
 st.title("🌍 EinTrust Dashboard")
 
 # ---------------------------
-# GHG Dashboard rendering
+# GHG Manual Entry Data
 # ---------------------------
+scope_activities = {
+    "Scope 1": {"Stationary Combustion": {"Diesel Generator": "Generator running on diesel",
+                                          "Petrol Generator": "Generator running on petrol"},
+                "Mobile Combustion": {"Diesel Vehicle": "Truck/van running on diesel"}},
+    "Scope 2": {"Electricity Consumption": {"Grid Electricity": "Electricity from grid"}},
+    "Scope 3": {"Business Travel": {"Air Travel": None}}
+}
+
+units_dict = {"Diesel Generator": "Liters", "Petrol Generator": "Liters", "Diesel Vehicle": "Liters",
+              "Grid Electricity": "kWh"}
+
+if 'entries' not in st.session_state:
+    st.session_state.entries = pd.DataFrame(columns=["Scope","Activity","Sub-Activity","Specific Item","Quantity","Unit"])
+
 def render_ghg_dashboard(include_data=True):
     st.subheader("🌱 GHG Emissions Dashboard")
     st.markdown("Estimate Scope 1, 2, and 3 emissions for net zero journey.")
@@ -113,92 +161,74 @@ def render_ghg_dashboard(include_data=True):
     with c4:
         st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 3']}'>{format_indian(s3)}</div><div class='kpi-label'>Scope 3 (tCO₂e)</div></div>", unsafe_allow_html=True)
 
-    # ---------------------------
-    # Manual Entry for GHG Page
-    # ---------------------------
     if include_data:
-        import numpy as np
+        st.subheader("➕ Add Manual Activity Data")
 
-        st.subheader("➕ Add Activity Data")
         # Scope selection
-        scope_options = emission_factors["scope"].dropna().unique() if not emission_factors.empty else ["Scope 1","Scope 2","Scope 3"]
-        selected_scope = st.selectbox("Select Scope", scope_options)
+        scope = st.selectbox("Select Scope", list(scope_activities.keys()))
+        activity = st.selectbox("Select Activity / Category", list(scope_activities[scope].keys()))
+        sub_options = scope_activities[scope][activity]
 
-        # Category / Activity selection
-        filtered_df = emission_factors[emission_factors["scope"]==selected_scope] if not emission_factors.empty else pd.DataFrame()
-        if selected_scope == "Scope 3":
-            category_options = filtered_df["category"].dropna().unique() if not filtered_df.empty else ["Purchased Goods & Services","Business Travel","Employee Commuting","Waste Generated"]
-            selected_category = st.selectbox("Select Scope 3 Category", category_options)
+        if scope != "Scope 3":
+            sub_activity = st.selectbox("Select Sub-Activity", list(sub_options.keys()))
+            st.info(sub_options[sub_activity])
         else:
-            selected_category = "-"
+            sub_activity = st.selectbox("Select Sub-Category", list(sub_options.keys()))
 
-        # Activity selection
-        activity_options = filtered_df["activity"].dropna().unique() if not filtered_df.empty else ["Activity A","Activity B"]
-        selected_activity = st.selectbox("Select Activity", activity_options)
+        specific_item = None
+        if scope == "Scope 3":
+            items = scope_activities[scope][activity][sub_activity]
+            if items is not None:
+                specific_item = st.selectbox("Select Specific Item", items)
 
-        # Emission factor
-        if not filtered_df.empty:
-            activity_df = filtered_df[filtered_df["activity"]==selected_activity]
-            if not activity_df.empty:
-                unit = str(activity_df["unit"].values[0])
-                ef = float(activity_df["emission_factor"].values[0])
+        unit = None
+        if scope != "Scope 3":
+            unit = units_dict.get(sub_activity, "")
+        else:
+            if sub_activity in ["Air Travel"]:
+                unit = "Number of flights"
             else:
-                unit = "-"
-                ef = 0.0
-        else:
-            unit = "-"
-            ef = 0.0
+                unit = "km / kg / Tonnes"
 
-        quantity = st.number_input(f"Enter quantity ({unit})", min_value=0.0, format="%.4f")
+        quantity = st.number_input(f"Enter Quantity ({unit})", min_value=0.0, format="%.2f")
 
-        # ---------------------------
-        # File upload for cross-verification only
-        # ---------------------------
-        st.subheader("Optional: Upload CSV / Excel / PDF for cross-verification")
+        # File upload for cross-verification
+        st.subheader("Optional: Upload File for Cross-Verification")
         uploaded_file = st.file_uploader("Upload CSV/XLS/XLSX/PDF", type=["csv","xls","xlsx","pdf"])
-        if uploaded_file:
-            st.info("File uploaded for cross-verification. Data from file will NOT affect the dashboard KPIs.")
 
-        # ---------------------------
-        # Add Entry
-        # ---------------------------
-        if st.button("Add Manual Entry") and quantity > 0 and ef > 0:
-            emissions = quantity * ef
+        # Add Manual Entry
+        if st.button("Add Manual Entry"):
             new_entry = {
-                "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "Scope": selected_scope,
-                "Category": selected_category,
-                "Activity": selected_activity,
+                "Scope": scope,
+                "Activity": activity,
+                "Sub-Activity": sub_activity,
+                "Specific Item": specific_item if specific_item else "",
                 "Quantity": quantity,
-                "Unit": unit,
-                "Emission Factor": ef,
-                "Emissions (tCO₂e)": emissions
+                "Unit": unit
             }
-            st.session_state.emissions_log.append(new_entry)
-            summary = {"Scope 1":0.0,"Scope 2":0.0,"Scope 3":0.0}
-            for e in st.session_state.emissions_log:
-                summary[e["Scope"]] += e["Emissions (tCO₂e)"]
-            st.session_state.emissions_summary = summary
+            st.session_state.entries = pd.concat([st.session_state.entries, pd.DataFrame([new_entry])], ignore_index=True)
             st.success("Entry added successfully!")
 
-        # ---------------------------
-        # Display Emissions Log
-        # ---------------------------
-        st.subheader("📜 Emissions Log")
-        if st.session_state.emissions_log:
-            log_df = pd.DataFrame(st.session_state.emissions_log).sort_values("Timestamp", ascending=False).reset_index(drop=True)
-            st.dataframe(log_df, use_container_width=True)
-            st.download_button("📥 Download Current Log (CSV)", data=log_df.to_csv(index=False), file_name="emissions_log_current.csv", mime="text/csv")
-        else:
-            st.info("No emission log data yet. Add entries above.")
+        # Display Entries
+        if not st.session_state.entries.empty:
+            st.subheader("All Entries")
+            display_df = st.session_state.entries.copy()
+            display_df["Quantity"] = display_df["Quantity"].apply(lambda x: f"{x:,.2f}")
+            st.dataframe(display_df)
+
+            # Download CSV
+            def convert_df(df):
+                return df.to_csv(index=False).encode('utf-8')
+            csv = convert_df(st.session_state.entries)
+            st.download_button("Download All Entries as CSV", csv, "ghg_entries.csv", "text/csv")
 
 # ---------------------------
-# Render Pages
+# Render pages
 # ---------------------------
 if st.session_state.page == "Home":
-    render_ghg_dashboard(include_data=False)   # Only KPIs, no Add Activity
+    render_ghg_dashboard(include_data=False)   # Home: only KPIs
 elif st.session_state.page == "GHG":
-    render_ghg_dashboard(include_data=True)    # Full GHG page
+    render_ghg_dashboard(include_data=True)    # GHG: full manual entry
 else:
     st.subheader(f"{st.session_state.page} Section")
     st.info("This section is under development. Please select other pages from sidebar.")

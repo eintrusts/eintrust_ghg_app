@@ -8,18 +8,42 @@ from io import BytesIO
 
 # --- Page Config ---
 st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout="wide")
+
+# --- Custom CSS for colors and background ---
+st.markdown(
+    """
+    <style>
+    /* Set off-white background */
+    .stApp {
+        background-color: #fefcf5;
+    }
+    /* Royal blue headings */
+    .stHeader, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
+        color: #4169E1;
+    }
+    /* Forest green normal text */
+    .stText, .stMarkdown p, .stTextInput>div>div>input {
+        color: #228B22;
+    }
+    /* Sidebar background */
+    .css-1d391kg {  /* sidebar container */
+        background-color: #fefcf5;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 st.title("Einboard")
 st.markdown("Estimate Scope 1, 2, and 3 emissions for net zero journey.")
 
-# --- Sidebar: GitHub Profile Photo ---
+# --- Sidebar: GitHub Profile Photo Only ---
 GITHUB_PROFILE_PHOTO_URL = "https://github.com/eintrusts.png"
-
 try:
     response = requests.get(GITHUB_PROFILE_PHOTO_URL)
     response.raise_for_status()
     img = Image.open(BytesIO(response.content))
     st.sidebar.image(img, use_container_width=True)
-    st.sidebar.markdown("**EinTrusts**")  # Show username below photo
 except Exception as e:
     st.sidebar.write("Logo not available:", e)
 

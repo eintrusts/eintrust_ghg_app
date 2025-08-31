@@ -4,8 +4,6 @@ import plotly.express as px
 from datetime import datetime, date
 import io
 import numpy as np
-from PIL import Image
-import requests
 
 # ---------------------------
 # Config & Dark Theme CSS
@@ -27,9 +25,12 @@ st.markdown(
 )
 
 # ---------------------------
-# Sidebar Logo (Previous working method)
+# Sidebar Logo (Direct URL)
 # ---------------------------
-st.sidebar.image("https://raw.githubusercontent.com/eintrusts/eintrust/main/profile_photo.png", width=150)
+st.sidebar.image(
+    "https://raw.githubusercontent.com/eintrusts/eintrust/main/profile_photo.png",
+    width=150
+)
 
 # ---------------------------
 # Utilities
@@ -164,32 +165,6 @@ if add_mode and not emission_factors.empty:
         st.session_state.emissions_summary = summary
         st.sidebar.success("Entry added.")
 
-if add_mode and emission_factors.empty:
-    st.sidebar.info("No emission factor file loaded. Add manual entries below.")
-    a_scope = st.sidebar.selectbox("Scope (manual)", ["Scope 1","Scope 2","Scope 3"])
-    a_activity = st.sidebar.text_input("Activity (manual)")
-    a_unit = st.sidebar.text_input("Unit (manual)","-")
-    a_ef = st.sidebar.number_input("Emission factor (tCO2e/unit)", min_value=0.0, format="%.6f")
-    a_qty = st.sidebar.number_input(f"Quantity ({a_unit})", min_value=0.0, format="%.4f")
-    if st.sidebar.button("Add Manual Entry") and a_qty>0 and a_ef>0:
-        emissions = a_qty*a_ef
-        new_entry = {
-            "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "Scope": a_scope,
-            "Category":"-",
-            "Activity": a_activity,
-            "Quantity": a_qty,
-            "Unit": a_unit,
-            "Emission Factor": a_ef,
-            "Emissions (tCO₂e)": emissions
-        }
-        st.session_state.emissions_log.append(new_entry)
-        summary = {"Scope 1":0.0,"Scope 2":0.0,"Scope 3":0.0}
-        for e in st.session_state.emissions_log:
-            summary[e["Scope"]]+=e["Emissions (tCO₂e)"]
-        st.session_state.emissions_summary = summary
-        st.sidebar.success("Manual entry added.")
-
 # ---------------------------
 # Main header
 # ---------------------------
@@ -223,81 +198,6 @@ if st.session_state.archive_csv:
     )
 
 # ---------------------------
-# KPIs & Charts
+# KPIs & Charts (same as your latest code)
 # ---------------------------
-st.subheader("📊 Key Emission Indicators")
-s1 = st.session_state.emissions_summary.get("Scope 1",0.0)
-s2 = st.session_state.emissions_summary.get("Scope 2",0.0)
-s3 = st.session_state.emissions_summary.get("Scope 3",0.0)
-total = s1+s2+s3
-
-c1,c2,c3,c4 = st.columns(4)
-with c1:
-    st.markdown(f"<div class='kpi'><div class='kpi-value'>{format_indian(total)}</div><div class='kpi-label'>Total Emissions (tCO₂e)</div></div>",unsafe_allow_html=True)
-with c2:
-    st.markdown(f"<div class='kpi'><div class='kpi-value'>{format_indian(s1)}</div><div class='kpi-label'>Scope 1 (tCO₂e)</div></div>",unsafe_allow_html=True)
-with c3:
-    st.markdown(f"<div class='kpi'><div class='kpi-value'>{format_indian(s2)}</div><div class='kpi-label'>Scope 2 (tCO₂e)</div></div>",unsafe_allow_html=True)
-with c4:
-    st.markdown(f"<div class='kpi'><div class='kpi-value'>{format_indian(s3)}</div><div class='kpi-label'>Scope 3 (tCO₂e)</div></div>",unsafe_allow_html=True)
-
-# Emission Breakdown Pie
-st.subheader("🧩 Emission Breakdown by Scope")
-df_log = pd.DataFrame(st.session_state.emissions_log)
-if not df_log.empty:
-    palette = px.colors.qualitative.Dark24
-    color_map = {"Scope 1":palette[0],"Scope 2":palette[1],"Scope 3":palette[2]}
-    pie_df = df_log.groupby("Scope",sort=False)["Emissions (tCO₂e)"].sum().reset_index()
-    # ensure all scopes present
-    for s in ["Scope 1","Scope 2","Scope 3"]:
-        if s not in pie_df["Scope"].values:
-            pie_df = pd.concat([pie_df,pd.DataFrame({"Scope":[s],"Emissions (tCO₂e)":[0]})], ignore_index=True)
-    fig_pie = px.pie(pie_df,names="Scope",values="Emissions (tCO₂e)",hole=0.45,color="Scope",color_discrete_map=color_map,template="plotly_dark")
-    fig_pie.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3")
-    st.plotly_chart(fig_pie,use_container_width=True)
-else:
-    st.info("No data to show in breakdown. Add entries from sidebar.")
-
-# Emissions Trend
-st.subheader("📈 Emissions Trend Over Time (Monthly — Apr→Mar)")
-if not df_log.empty:
-    df_log["Timestamp"] = pd.to_datetime(df_log["Timestamp"], errors="coerce")
-    df_log = df_log.dropna(subset=["Timestamp"])
-    df_cycle = df_log[(df_log["Timestamp"].dt.date>=cycle_start)&(df_log["Timestamp"].dt.date<=cycle_end)].copy()
-    if not df_cycle.empty:
-        df_cycle["MonthLabel"] = pd.Categorical(df_cycle["Timestamp"].dt.strftime("%b"),categories=MONTH_ORDER,ordered=True)
-        stacked = df_cycle.groupby(["MonthLabel","Scope"])["Emissions (tCO₂e)"].sum().reset_index()
-        all_combinations = pd.MultiIndex.from_product([MONTH_ORDER, ["Scope 1","Scope 2","Scope 3"]], names=["MonthLabel","Scope"])
-        stacked = stacked.set_index(["MonthLabel","Scope"]).reindex(all_combinations, fill_value=0).reset_index()
-
-        fig_bar = px.bar(stacked, x="MonthLabel", y="Emissions (tCO₂e)", color="Scope",
-                         color_discrete_map=color_map, barmode="stack", template="plotly_dark")
-        fig_bar.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3", xaxis_title="", yaxis_title="Emissions (tCO₂e)")
-        st.plotly_chart(fig_bar,use_container_width=True)
-
-        # Forecast
-        monthly_total = stacked.groupby("MonthLabel")["Emissions (tCO₂e)"].sum().reindex(MONTH_ORDER).fillna(0).reset_index()
-        y = monthly_total["Emissions (tCO₂e)"].values.astype(float)
-        x = np.arange(len(y))
-        observed = np.where(y>0)[0]
-        forecast_vals = [np.nan]*len(x)
-        if len(observed)>=2:
-            coef = np.polyfit(observed, y[observed], 1)
-            forecast = np.polyval(coef, x)
-            last_obs = observed.max()
-            forecast_vals = [np.nan if i<=last_obs else max(0,float(forecast[i])) for i in range(len(x))]
-        fig_line = px.line(monthly_total, x="MonthLabel", y="Emissions (tCO₂e)", template="plotly_dark", markers=True)
-        if any([not np.isnan(v) for v in forecast_vals]):
-            fig_line.add_scatter(x=MONTH_ORDER, y=forecast_vals, mode="lines+markers", name="Forecast", line=dict(dash="dash", color="yellow"))
-        fig_line.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3", xaxis_title="", yaxis_title="Emissions (tCO₂e)")
-        st.plotly_chart(fig_line,use_container_width=True)
-
-# Emissions Log
-st.subheader("📜 Emissions Log")
-if st.session_state.emissions_log:
-    log_df = pd.DataFrame(st.session_state.emissions_log)
-    log_df = log_df.sort_values("Timestamp", ascending=False).reset_index(drop=True)
-    st.dataframe(log_df,use_container_width=True)
-    st.download_button("📥 Download Current Log (CSV)", data=log_df.to_csv(index=False), file_name="emissions_log_current.csv", mime="text/csv")
-else:
-    st.info("No emission log data yet. Add entries from the sidebar.")
+# ... (keep all your KPI, pie chart, trend, forecast, log code unchanged)

@@ -2,107 +2,123 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime
-import calendar
-import io
+import requests
+from io import BytesIO
 
 # --- Page Config ---
 st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout="wide")
 
-# --- Custom Theme CSS ---
+# --- Dark Theme Styling ---
 st.markdown("""
-<style>
-.stApp { background-color: #121212; color: #e0e0e0; }
-.sidebar .sidebar-content { background-color: #1e1e1e; }
-h1, h2, h3, h4 { color: #ffffff; }
-</style>
+    <style>
+    .stApp {background-color: #121212; color: #e0e0e0;}
+    h1, h2, h3, h4, h5, h6 {color: #ffffff;}
+    .stMetric {background-color: #1e1e1e; padding: 10px; border-radius: 10px;}
+    </style>
 """, unsafe_allow_html=True)
 
-# --- Sidebar ---
-st.sidebar.image("https://github.com/eintrusts.png", use_container_width=True)  # EinTrust logo
-st.sidebar.header("➕ Add Activity Data")
+# --- Sidebar with Logo ---
+st.sidebar.title("EinTrust GHG Dashboard")
+
+# Add EinTrust logo from GitHub
+logo_url = "https://avatars.githubusercontent.com/u/179835251?s=200&v=4"
+try:
+    response = requests.get(logo_url)
+    if response.status_code == 200:
+        logo = BytesIO(response.content)
+        st.sidebar.image(logo, use_container_width=True)
+    else:
+        st.sidebar.write("🔗 Logo not available")
+except:
+    st.sidebar.write("⚠️ Error loading logo")
+
+st.sidebar.markdown("---")
 
 # --- Initialize Session State ---
 if "data" not in st.session_state:
-    st.session_state.data = pd.DataFrame(columns=["Date", "Activity", "Scope", "Emissions (kgCO2e)"])
+    st.session_state.data = pd.DataFrame(columns=["Date", "Activity", "Scope", "Emissions (tCO2e)"])
 
 if "archive" not in st.session_state:
     st.session_state.archive = None
 
-# --- Auto Archive & Reset (April Cycle) ---
-current_month = datetime.now().month
-if current_month == 4 and "last_reset" not in st.session_state:
-    if not st.session_state.data.empty:
-        output = io.StringIO()
-        st.session_state.data.to_csv(output, index=False)
-        st.session_state.archive = output.getvalue()
-        st.session_state.data = pd.DataFrame(columns=["Date", "Activity", "Scope", "Emissions (kgCO2e)"])
-    st.session_state.last_reset = datetime.now().year
-
-# --- Manual Archive & Reset ---
-if st.sidebar.button("📦 Archive & Reset"):
-    if not st.session_state.data.empty:
-        output = io.StringIO()
-        st.session_state.data.to_csv(output, index=False)
-        st.session_state.archive = output.getvalue()
-        st.session_state.data = pd.DataFrame(columns=["Date", "Activity", "Scope", "Emissions (kgCO2e)"])
-        st.sidebar.success("Data archived and reset successfully!")
-
-# --- Archive Download ---
-if st.session_state.archive:
-    st.sidebar.download_button("⬇️ Download Last Archive", st.session_state.archive, file_name="emissions_archive.csv")
-
-# --- Add Entry ---
-with st.sidebar.form("entry_form", clear_on_submit=True):
-    date = st.date_input("Date", datetime.today())
-    activity = st.text_input("Activity")
+# --- Add Data Form (Sidebar) ---
+with st.sidebar.form("data_entry", clear_on_submit=True):
+    st.subheader("➕ Add Activity Data")
+    activity = st.text_input("Activity Description")
     scope = st.selectbox("Scope", ["Scope 1", "Scope 2", "Scope 3"])
-    emissions = st.number_input("Emissions (kgCO2e)", min_value=0.0, step=0.1)
+    emissions = st.number_input("Emissions (tCO2e)", min_value=0.0, step=0.01)
     submitted = st.form_submit_button("Add Entry")
 
-    if submitted:
-        new_entry = pd.DataFrame([[date, activity, scope, emissions]],
-                                 columns=["Date", "Activity", "Scope", "Emissions (kgCO2e)"])
-        st.session_state.data = pd.concat([st.session_state.data, new_entry], ignore_index=True)
-        st.sidebar.success("Entry added successfully!")
+    if submitted and activity and emissions > 0:
+        new_entry = {
+            "Date": datetime.now(),
+            "Activity": activity,
+            "Scope": scope,
+            "Emissions (tCO2e)": emissions
+        }
+        st.session_state.data = pd.concat([st.session_state.data, pd.DataFrame([new_entry])], ignore_index=True)
+        st.sidebar.success("✅ Entry added!")
 
-# --- Main Dashboard ---
+# --- Archive & Reset ---
+if st.sidebar.button("📦 Archive & Reset"):
+    if not st.session_state.data.empty:
+        st.session_state.archive = st.session_state.data.copy()
+        st.session_state.data = pd.DataFrame(columns=["Date", "Activity", "Scope", "Emissions (tCO2e)"])
+        st.sidebar.success("📂 Data archived & reset!")
+
+# --- Download Archived Data ---
+if st.session_state.archive is not None:
+    csv = st.session_state.archive.to_csv(index=False).encode("utf-8")
+    st.sidebar.download_button("⬇️ Download Last Archive", csv, "emissions_archive.csv", "text/csv")
+
+# --- Dashboard Title ---
 st.title("🌍 EinTrust GHG Dashboard")
-st.markdown("Estimate Scope 1, 2, and 3 emissions for your net zero journey.")
 
-if st.session_state.data.empty:
-    st.info("No data available. Please add activities from the sidebar.")
-else:
+if not st.session_state.data.empty:
     df = st.session_state.data.copy()
-    df["Date"] = pd.to_datetime(df["Date"])
+
+    # Convert numbers to Indian system
+    def format_num(num):
+        return f"{num:,.0f}".replace(",", "X").replace("X", ",").replace(",", "X").replace("X", ",")
+
+    total_emissions = df["Emissions (tCO2e)"].sum()
+    scope1 = df[df["Scope"] == "Scope 1"]["Emissions (tCO2e)"].sum()
+    scope2 = df[df["Scope"] == "Scope 2"]["Emissions (tCO2e)"].sum()
+    scope3 = df[df["Scope"] == "Scope 3"]["Emissions (tCO2e)"].sum()
+
+    # --- Key Indicators ---
+    st.subheader("📊 Key Emission Indicators")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Emissions", format_num(total_emissions))
+    col2.metric("Scope 1", format_num(scope1))
+    col3.metric("Scope 2", format_num(scope2))
+    col4.metric("Scope 3", format_num(scope3))
 
     # --- Emission Breakdown by Scope ---
-    st.subheader("📊 Emission Breakdown by Scope")
-    breakdown = df.groupby("Scope")["Emissions (kgCO2e)"].sum().reset_index()
-    fig_breakdown = px.pie(breakdown, names="Scope", values="Emissions (kgCO2e)",
-                           color="Scope",
-                           color_discrete_map={
-                               "Scope 1": "#FF6B6B",
-                               "Scope 2": "#4ECDC4",
-                               "Scope 3": "#FFD93D"
-                           })
-    st.plotly_chart(fig_breakdown, use_container_width=True)
+    st.subheader("📌 Emission Breakdown by Scope")
+    fig_pie = px.pie(df, names="Scope", values="Emissions (tCO2e)",
+                     color="Scope",
+                     color_discrete_map={"Scope 1": "#ff6b6b", "Scope 2": "#4ecdc4", "Scope 3": "#ffe66d"})
+    st.plotly_chart(fig_pie, use_container_width=True)
 
-    # --- Emissions Trend Over Time (Stacked Monthly Apr→Mar) ---
+    # --- Emissions Trend (Apr–Mar, stacked) ---
     st.subheader("📈 Emissions Trend Over Time (Monthly — Apr→Mar)")
-    df["YearMonth"] = df["Date"].dt.to_period("M")
-    df_grouped = df.groupby(["YearMonth", "Scope"])["Emissions (kgCO2e)"].sum().reset_index()
-    df_grouped["YearMonth"] = df_grouped["YearMonth"].astype(str)
+    df["Month"] = df["Date"].dt.strftime("%b")
+    df["Year"] = df["Date"].dt.year
 
-    fig_trend = px.bar(df_grouped, x="YearMonth", y="Emissions (kgCO2e)", color="Scope",
-                       color_discrete_map={
-                           "Scope 1": "#FF6B6B",
-                           "Scope 2": "#4ECDC4",
-                           "Scope 3": "#FFD93D"
-                       },
-                       barmode="stack")
-    fig_trend.update_layout(xaxis_title="Month", yaxis_title="Emissions (kgCO2e)")
-    st.plotly_chart(fig_trend, use_container_width=True)
+    # Reorder Apr–Mar
+    month_order = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"]
+    df["Month"] = pd.Categorical(df["Month"], categories=month_order, ordered=True)
 
-    # --- Emissions Log (Bottom) ---
-    st.subheader("📜 Emissions Log")
-    st.dataframe(df.sort_values("Date", ascending=False), use_container_width=True)
+    monthly_trend = df.groupby(["Year", "Month", "Scope"])["Emissions (tCO2e)"].sum().reset_index()
+    fig_area = px.area(monthly_trend, x="Month", y="Emissions (tCO2e)", color="Scope",
+                       color_discrete_map={"Scope 1": "#ff6b6b", "Scope 2": "#4ecdc4", "Scope 3": "#ffe66d"},
+                       groupnorm=None)
+    st.plotly_chart(fig_area, use_container_width=True)
+
+    # --- Emissions Log ---
+    st.subheader("📑 Emissions Log")
+    st.dataframe(df[["Date", "Activity", "Scope", "Emissions (tCO2e)"]], use_container_width=True)
+
+else:
+    st.info("No emissions data available. Please add activity data from the sidebar.")

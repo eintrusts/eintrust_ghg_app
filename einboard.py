@@ -25,15 +25,17 @@ st.markdown(
 )
 
 # ---------------------------
+# Sidebar — Logo
+# ---------------------------
+st.sidebar.image(
+    "https://github.com/eintrusts/eintrust_ghg_app/raw/main/EinTrust%20%20logo.png",
+    use_container_width=True
+)
+
+# ---------------------------
 # Utilities
 # ---------------------------
 MONTH_ORDER = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"]
-
-SCOPE_COLORS = {
-    "Scope 1": "#66bb6a",  # green
-    "Scope 2": "#ffa726",  # orange
-    "Scope 3": "#29b6f6",  # blue
-}
 
 def format_indian(n: float) -> str:
     try:
@@ -61,6 +63,15 @@ def get_cycle_bounds(today: date):
         start = date(today.year, 4, 1)
         end = date(today.year + 1, 3, 31)
     return start, end
+
+# ---------------------------
+# Sustainability Color Palette
+# ---------------------------
+SCOPE_COLORS = {
+    "Scope 1": "#4caf50",  # green
+    "Scope 2": "#ff9800",  # orange
+    "Scope 3": "#2196f3"   # blue
+}
 
 # ---------------------------
 # Load emission factors
@@ -106,24 +117,10 @@ if today.month == 4 and today.day == 1:
         st.session_state.last_reset_year = today.year
 
 # ---------------------------
-# Sidebar — Logo
-# ---------------------------
-st.sidebar.image(
-    "https://github.com/eintrusts/eintrust_ghg_app/raw/main/EinTrust%20%20logo.png",
-    use_column_width=True
-)
-
-# ---------------------------
 # Sidebar — Add Activity Data
 # ---------------------------
 st.sidebar.header("Add Activity Data")
 add_mode = st.sidebar.checkbox("Add Entry Mode", value=False)
-
-selected_scope = None
-selected_category = "-"
-selected_activity = None
-unit = "-"
-ef = 0.0
 
 if add_mode and not emission_factors.empty:
     scope_options = emission_factors["scope"].dropna().unique()
@@ -150,9 +147,7 @@ if add_mode and not emission_factors.empty:
         unit = "-"
         ef = 0.0
 
-    quantity = st.sidebar.number_input(
-        f"Enter quantity ({unit})", min_value=0.0, format="%.4f", value=0.0, step=1.0
-    )
+    quantity = st.sidebar.number_input(f"Enter quantity ({unit})", min_value=0.0, format="%.4f")
     st.sidebar.markdown(f"**Entered Quantity:** {format_indian(quantity)} {unit}")
 
     if st.sidebar.button("Add Entry") and quantity > 0 and ef > 0 and selected_scope and selected_activity:
@@ -175,10 +170,65 @@ if add_mode and not emission_factors.empty:
         st.sidebar.success("Entry added.")
 
 # ---------------------------
-# Main Dashboard
+# Sidebar — Manual Entry
+# ---------------------------
+if add_mode and emission_factors.empty:
+    a_scope = st.sidebar.selectbox("Scope (manual)", ["Scope 1", "Scope 2", "Scope 3"])
+    a_activity = st.sidebar.text_input("Activity (manual)")
+    a_unit = st.sidebar.text_input("Unit (manual)", value="-")
+    a_ef = st.sidebar.number_input("Emission factor (manual, tCO2e per unit)", min_value=0.0, format="%.6f")
+    a_qty = st.sidebar.number_input(f"Quantity ({a_unit})", min_value=0.0, format="%.4f")
+    st.sidebar.markdown(f"**Entered Quantity:** {format_indian(a_qty)} {a_unit}")
+    if st.sidebar.button("Add Manual Entry") and a_qty > 0 and a_ef > 0:
+        emissions = a_qty * a_ef
+        new_entry = {
+            "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "Scope": a_scope,
+            "Category": "-",
+            "Activity": a_activity,
+            "Quantity": a_qty,
+            "Unit": a_unit,
+            "Emission Factor": a_ef,
+            "Emissions (tCO₂e)": emissions
+        }
+        st.session_state.emissions_log.append(new_entry)
+        summary = {"Scope 1": 0.0, "Scope 2": 0.0, "Scope 3": 0.0}
+        for e in st.session_state.emissions_log:
+            summary[e["Scope"]] += e["Emissions (tCO₂e)"]
+        st.session_state.emissions_summary = summary
+        st.sidebar.success("Manual entry added.")
+
+# ---------------------------
+# Main dashboard
 # ---------------------------
 st.title("🌍 EinTrust GHG Dashboard")
 st.markdown("Estimate Scope 1, 2 and 3 emissions for net zero journey.")
+
+# ---------------------------
+# Manual Archive & Reset
+# ---------------------------
+st.sidebar.markdown("---")
+if st.sidebar.button("🗂️ Archive & Reset Now"):
+    if st.session_state.emissions_log:
+        df_arch = pd.DataFrame(st.session_state.emissions_log)
+        buf = io.StringIO()
+        df_arch.to_csv(buf, index=False)
+        prev_cycle_start = cycle_start.replace(year=cycle_start.year - 1)
+        prev_cycle_end = prev_cycle_start.replace(year=prev_cycle_start.year + 1, month=3, day=31)
+        fname = f"emissions_Apr{prev_cycle_start.year}_Mar{prev_cycle_end.year}.csv"
+        st.session_state.archive_csv = buf.getvalue()
+        st.session_state.last_archive_name = fname
+    st.session_state.emissions_log = []
+    st.session_state.emissions_summary = {"Scope 1": 0.0, "Scope 2": 0.0, "Scope 3": 0.0}
+    st.sidebar.success("Archived & reset completed.")
+
+if st.session_state.archive_csv:
+    st.download_button(
+        "⬇️ Download Last Cycle Archive (CSV)",
+        data=st.session_state.archive_csv,
+        file_name=st.session_state.last_archive_name or "emissions_archive.csv",
+        mime="text/csv",
+    )
 
 # ---------------------------
 # KPIs
@@ -199,12 +249,12 @@ with c4:
     st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 3']}'>{format_indian(s3)}</div><div class='kpi-label'>Scope 3 (tCO₂e)</div></div>", unsafe_allow_html=True)
 
 # ---------------------------
-# Emission Breakdown Pie Chart
+# Emission Breakdown Pie
 # ---------------------------
-st.subheader("📊 GHG Emissions Breakdown by Scope")
+st.subheader("📊 Emission Breakdown by Scope")
 df_log = pd.DataFrame(st.session_state.emissions_log)
 if not df_log.empty:
-    pie_df = df_log.groupby("Scope", sort=False)["Emissions (tCO₂e)"].sum().reset_index()
+    pie_df = df_log.groupby("Scope", sort=False)["Emissions (tCO₂e)"].sum().reindex(["Scope 1","Scope 2","Scope 3"], fill_value=0).reset_index()
     fig_pie = px.pie(
         pie_df,
         names="Scope",
@@ -214,47 +264,46 @@ if not df_log.empty:
         color_discrete_map=SCOPE_COLORS,
         template="plotly_dark"
     )
-    fig_pie.update_traces(textinfo="label+percent", textfont_size=14)
+    fig_pie.update_traces(textinfo="percent+label")
     fig_pie.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3")
     st.plotly_chart(fig_pie, use_container_width=True)
 else:
-    st.info("No data to show. Add entries from sidebar.")
+    st.info("No data to show in breakdown. Add entries from sidebar.")
 
 # ---------------------------
-# Monthly Emissions Trend
+# Emissions Trend Over Time
 # ---------------------------
-st.subheader("📈 GHG Emissions Trend Over Time (Monthly)")
+st.subheader("📈 Emissions Trend Over Time (Monthly)")
 if not df_log.empty:
     df_log["Timestamp"] = pd.to_datetime(df_log["Timestamp"], errors="coerce")
     df_log = df_log.dropna(subset=["Timestamp"])
     df_cycle = df_log[(df_log["Timestamp"].dt.date >= cycle_start) & (df_log["Timestamp"].dt.date <= cycle_end)].copy()
-    if df_cycle.empty:
-        st.info("No entries in the current Apr–Mar cycle yet.")
-    else:
-        df_cycle["MonthLabel"] = pd.Categorical(df_cycle["Timestamp"].dt.strftime("%b"), categories=MONTH_ORDER, ordered=True)
-        stacked = df_cycle.groupby(["MonthLabel", "Scope"])["Emissions (tCO₂e)"].sum().reset_index()
-        pivot = stacked.pivot(index="MonthLabel", columns="Scope", values="Emissions (tCO₂e)").reindex(MONTH_ORDER).fillna(0)
-        pivot = pivot.reset_index()
-        melt = pivot.melt(id_vars=["MonthLabel"], var_name="Scope", value_name="Emissions (tCO₂e)")
-        fig_bar = px.bar(
-            melt,
-            x="MonthLabel",
-            y="Emissions (tCO₂e)",
-            color="Scope",
-            color_discrete_map=SCOPE_COLORS,
-            barmode="stack",
-            template="plotly_dark"
-        )
-        fig_bar.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3", xaxis_title="", yaxis_title="Emissions (tCO₂e)")
-        st.plotly_chart(fig_bar, use_container_width=True)
+    df_cycle["MonthLabel"] = pd.Categorical(df_cycle["Timestamp"].dt.strftime("%b"), categories=MONTH_ORDER, ordered=True)
+    stacked = df_cycle.groupby(["MonthLabel", "Scope"])["Emissions (tCO₂e)"].sum().reset_index()
+    pivot = stacked.pivot(index="MonthLabel", columns="Scope", values="Emissions (tCO₂e)").reindex(MONTH_ORDER).fillna(0)
+    pivot = pivot.reset_index()
+    melt = pivot.melt(id_vars=["MonthLabel"], var_name="Scope", value_name="Emissions (tCO₂e)")
+    fig_bar = px.bar(
+        melt,
+        x="MonthLabel",
+        y="Emissions (tCO₂e)",
+        color="Scope",
+        color_discrete_map=SCOPE_COLORS,
+        barmode="stack",
+        template="plotly_dark"
+    )
+    fig_bar.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3", xaxis_title="", yaxis_title="Emissions (tCO₂e)")
+    st.plotly_chart(fig_bar, use_container_width=True)
+else:
+    st.info("No entries in the current Apr–Mar cycle yet.")
 
 # ---------------------------
-# Emissions Log Table
+# Emissions Log
 # ---------------------------
 st.subheader("📜 Emissions Log")
 if st.session_state.emissions_log:
-    log_df = pd.DataFrame(st.session_state.emissions_log).sort_values("Timestamp",ascending=False).reset_index(drop=True)
-    st.dataframe(log_df,use_container_width=True)
-    st.download_button("📥 Download Current Log (CSV)", log_df.to_csv(index=False), "emissions_log_current.csv","text/csv")
+    log_df = pd.DataFrame(st.session_state.emissions_log).sort_values("Timestamp", ascending=False).reset_index(drop=True)
+    st.dataframe(log_df, use_container_width=True)
+    st.download_button("📥 Download Current Log (CSV)", data=log_df.to_csv(index=False), file_name="emissions_log_current.csv", mime="text/csv")
 else:
     st.info("No emission log data yet. Add entries from the sidebar.")

@@ -5,7 +5,21 @@ from datetime import datetime
 
 # --- Page Config ---
 st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout="wide")
-st.title("EinTrust GHG Dashboard")
+
+# --- Custom CSS ---
+st.markdown(
+    """
+    <style>
+    .stApp {background: linear-gradient(120deg, #e8f5e9, #f1f8e9);} 
+    .big-font {font-size:20px !important; font-weight:bold; color:#2e7d32;}
+    .kpi-card {background:#ffffff; padding:15px; border-radius:15px; box-shadow:0px 2px 8px rgba(0,0,0,0.1);} 
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# --- Title ---
+st.title("🌍 EinTrust GHG Dashboard")
 st.markdown("Estimate Scope 1, 2, and 3 emissions for net zero journey.")
 
 # --- Load Emission Factors ---
@@ -72,6 +86,14 @@ if add_mode and not emission_factors.empty:
             summary[e["Scope"]] += e["Emissions (tCO₂e)"]
         st.session_state.emissions_summary = summary
 
+# --- KPI Cards ---
+st.subheader("📊 Key Emission Indicators")
+col1, col2, col3 = st.columns(3)
+for i, scope in enumerate(["Scope 1","Scope 2","Scope 3"]):
+    with [col1,col2,col3][i]:
+        val = st.session_state.emissions_summary.get(scope,0)
+        st.markdown(f"<div class='kpi-card'><span class='big-font'>{val:.2f}</span><br>{scope} Emissions (tCO₂e)</div>", unsafe_allow_html=True)
+
 # --- Main Dashboard ---
 col1, col2 = st.columns([1,2])
 
@@ -80,7 +102,7 @@ with col1:
     if st.session_state.emissions_log:
         latest = st.session_state.emissions_log[-1]
         for k,v in latest.items():
-            st.markdown(f"- {k}: {v}")
+            st.markdown(f"- **{k}:** {v}")
     else:
         st.info("No data yet. Add from sidebar.")
 
@@ -92,7 +114,7 @@ with col2:
 
     if not chart_df.empty:
         fig = px.pie(chart_df, names="Scope", values="Emissions",
-                     color_discrete_sequence=px.colors.sequential.Purples_r, hole=0.45)
+                     color_discrete_sequence=px.colors.sequential.Greens_r, hole=0.45)
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No data to show chart.")
@@ -103,28 +125,32 @@ if st.session_state.emissions_log:
     log_df = pd.DataFrame(st.session_state.emissions_log)
     log_df.index = range(1,len(log_df)+1)
 
-    selected_rows = st.multiselect("Select rows to delete", options=log_df.index.tolist(), default=[])
-    if st.button("Delete Selected Rows") and selected_rows:
-        log_df = log_df.drop(index=selected_rows)
-        st.session_state.emissions_log = log_df.to_dict(orient="records")
+    with st.expander("View & Manage Emission Log", expanded=False):
+        selected_rows = st.multiselect("Select rows to delete", options=log_df.index.tolist(), default=[])
+        if st.button("Delete Selected Rows") and selected_rows:
+            log_df = log_df.drop(index=selected_rows)
+            st.session_state.emissions_log = log_df.to_dict(orient="records")
 
-        summary = {"Scope 1":0,"Scope 2":0,"Scope 3":0}
-        for e in st.session_state.emissions_log:
-            summary[e["Scope"]] += e["Emissions (tCO₂e)"]
-        st.session_state.emissions_summary = summary
+            summary = {"Scope 1":0,"Scope 2":0,"Scope 3":0}
+            for e in st.session_state.emissions_log:
+                summary[e["Scope"]] += e["Emissions (tCO₂e)"]
+            st.session_state.emissions_summary = summary
 
-    total_row = pd.DataFrame([{
-        "Timestamp":"-",
-        "Scope":"Total",
-        "Category":"-",
-        "Activity":"-",
-        "Quantity":log_df["Quantity"].sum(),
-        "Unit":"",
-        "Emission Factor":"-",
-        "Emissions (tCO₂e)":log_df["Emissions (tCO₂e)"].sum()
-    }])
-    final_df = pd.concat([log_df,total_row], ignore_index=True)
-    final_df.index = range(1,len(final_df)+1)
-    st.dataframe(final_df, use_container_width=True)
+        total_row = pd.DataFrame([{
+            "Timestamp":"-",
+            "Scope":"Total",
+            "Category":"-",
+            "Activity":"-",
+            "Quantity":log_df["Quantity"].sum(),
+            "Unit":"",
+            "Emission Factor":"-",
+            "Emissions (tCO₂e)":log_df["Emissions (tCO₂e)"].sum()
+        }])
+        final_df = pd.concat([log_df,total_row], ignore_index=True)
+        final_df.index = range(1,len(final_df)+1)
+        st.dataframe(final_df, use_container_width=True)
+
+        # Download option
+        st.download_button("📥 Download Log as CSV", data=final_df.to_csv(index=False), file_name="emissions_log.csv", mime="text/csv")
 else:
     st.info("No emission log data yet.")

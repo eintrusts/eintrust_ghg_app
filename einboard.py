@@ -28,12 +28,13 @@ html, body, [class*="css"] { font-family: 'Roboto', sans-serif; }
 
 .sdg-card {
     border-radius: 10px; padding: 15px; margin: 8px;
-    display: inline-block; width: 100%; min-height: 110px;
+    display: inline-block; width: 100%; min-height: 150px;
     text-align: left; color: white;
 }
 .sdg-number { font-weight: 700; font-size: 20px; }
 .sdg-name { font-size: 16px; margin-bottom: 5px; }
-.sdg-percent { font-size: 14px; }
+.sdg-percent { font-size: 14px; margin-bottom: 10px; }
+.sdg-slider { width: 100%; }
 
 @media (min-width: 768px) {
     .sdg-card { width: 220px; display: inline-block; }
@@ -130,24 +131,8 @@ if "employee_data" not in st.session_state:
     st.session_state.employee_data = {}
 
 # ---------------------------
-# Constants
+# SDG Constants
 # ---------------------------
-scope_activities = {
-    "Scope 1": {"Stationary Combustion": {"Diesel Generator": "Generator running on diesel",
-                                          "Petrol Generator": "Generator running on petrol"},
-                "Mobile Combustion": {"Diesel Vehicle": "Truck/van running on diesel"}},
-    "Scope 2": {"Electricity Consumption": {"Grid Electricity": "Electricity from grid"}},
-    "Scope 3": {"Business Travel": {"Air Travel": None}}
-}
-
-units_dict = {"Diesel Generator": "Liters", "Petrol Generator": "Liters", "Diesel Vehicle": "Liters",
-              "Grid Electricity": "kWh"}
-
-months = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"]
-
-SCOPE_COLORS = {"Scope 1": "#81c784", "Scope 2": "#4db6ac", "Scope 3": "#aed581"}
-ENERGY_COLORS = {"Fossil": "#f39c12", "Renewable": "#2ecc71"}
-
 SDG_LIST = [
     "No Poverty", "Zero Hunger", "Good Health & Wellbeing", "Quality Education", "Gender Equality",
     "Clean Water & Sanitation", "Affordable & Clean Energy", "Decent Work & Economic Growth",
@@ -162,97 +147,14 @@ SDG_COLORS = [
 ]
 
 # ---------------------------
-# GHG Dashboard
-# ---------------------------
-def calculate_kpis():
-    df = st.session_state.entries
-    summary = {"Scope 1": 0.0, "Scope 2": 0.0, "Scope 3": 0.0, "Total Quantity": 0.0, "Unit": "tCO₂e"}
-    if not df.empty:
-        for scope in ["Scope 1","Scope 2","Scope 3"]:
-            summary[scope] = df[df["Scope"]==scope]["Quantity"].sum()
-        summary["Total Quantity"] = df["Quantity"].sum()
-    return summary
-
-def render_ghg_dashboard(include_data=True, show_chart=True):
-    st.subheader("GHG Emissions")
-    kpis = calculate_kpis()
-    c1, c2, c3, c4 = st.columns(4)
-    for col, label, value, color in zip(
-        [c1, c2, c3, c4], 
-        ["Total Quantity", "Scope 1", "Scope 2", "Scope 3"],
-        [kpis['Total Quantity'], kpis['Scope 1'], kpis['Scope 2'], kpis['Scope 3']],
-        ["#ffffff", SCOPE_COLORS['Scope 1'], SCOPE_COLORS['Scope 2'], SCOPE_COLORS['Scope 3']]
-    ):
-        col.markdown(f"""
-        <div class='kpi'>
-            <div class='kpi-value' style='color:{color}'>{format_indian(value)}</div>
-            <div class='kpi-unit'>{kpis['Unit']}</div>
-            <div class='kpi-label'>{label.lower()}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    if show_chart and not st.session_state.entries.empty:
-        df = st.session_state.entries.copy()
-        if "Month" not in df.columns:
-            df["Month"] = np.random.choice(months, len(df))
-        df["Month"] = pd.Categorical(df["Month"], categories=months, ordered=True)
-        monthly_trend = df.groupby(["Month","Scope"])["Quantity"].sum().reset_index()
-        st.subheader("Monthly GHG Emissions")
-        fig = px.bar(monthly_trend, x="Month", y="Quantity", color="Scope", barmode="stack",
-                     color_discrete_map=SCOPE_COLORS)
-        st.plotly_chart(fig, use_container_width=True)
-
-    if include_data:
-        scope = st.selectbox("Select scope", list(scope_activities.keys()))
-        activity = st.selectbox("Select activity / category", list(scope_activities[scope].keys()))
-        sub_options = scope_activities[scope][activity]
-
-        if scope != "Scope 3":
-            sub_activity = st.selectbox("Select sub-activity", list(sub_options.keys()))
-            st.info(sub_options[sub_activity])
-        else:
-            sub_activity = st.selectbox("Select sub-category", list(sub_options.keys()))
-
-        specific_item = None
-        if scope == "Scope 3":
-            items = scope_activities[scope][activity][sub_activity]
-            if items is not None:
-                specific_item = st.selectbox("Select specific item", items)
-
-        unit = units_dict.get(sub_activity, "Number of flights" if sub_activity=="Air Travel" else "km / kg / tonnes")
-        quantity = st.number_input(f"Enter quantity ({unit})", min_value=0.0, format="%.2f")
-        uploaded_file = st.file_uploader("Upload CSV/XLS/XLSX/PDF for cross verification (optional)", type=["csv","xls","xlsx","pdf"])
-
-        if st.button("Add Entry"):
-            new_entry = {
-                "Scope": scope,
-                "Activity": activity,
-                "Sub-Activity": sub_activity,
-                "Specific Item": specific_item if specific_item else "",
-                "Quantity": quantity,
-                "Unit": unit
-            }
-            st.session_state.entries = pd.concat([st.session_state.entries, pd.DataFrame([new_entry])], ignore_index=True)
-            st.success("GHG entry added successfully!")
-            st.experimental_rerun()
-
-        if not st.session_state.entries.empty:
-            st.subheader("All entries")
-            display_df = st.session_state.entries.copy()
-            display_df["Quantity"] = display_df["Quantity"].apply(lambda x: format_indian(x))
-            st.dataframe(display_df)
-            csv = display_df.to_csv(index=False).encode('utf-8')
-            st.download_button("Download all entries as CSV", csv, "ghg_entries.csv", "text/csv")
-
-# ---------------------------
-# Employee Dashboard
+# Employee Page
 # ---------------------------
 def render_employee_dashboard():
     st.title("Employee Data & ESG Reporting")
-    
+
     # --- Workforce Profile ---
     st.subheader("Workforce Profile")
-    st.markdown("**Number of Employees** (Permanent / Temporary / Total) – BRSR, GRI 2-7, SASB")
+    st.markdown("**Number of Employees (Permanent / Temporary / Total)** – BRSR, GRI 2-7, SASB")
     if "num_employees" not in st.session_state.employee_data:
         st.session_state.employee_data["num_employees"] = pd.DataFrame({
             "": ["Male", "Female", "Total"],
@@ -264,7 +166,7 @@ def render_employee_dashboard():
         st.session_state.employee_data["num_employees"], key="num_emp"
     )
 
-    st.markdown("**Age-wise Distribution** (<30 / 30-50 / >50) – BRSR, GRI 2-7")
+    st.markdown("**Age-wise Distribution (<30 / 30-50 / >50)** – BRSR, GRI 2-7")
     if "age_distribution" not in st.session_state.employee_data:
         st.session_state.employee_data["age_distribution"] = pd.DataFrame({
             "Age Group": ["<30","30-50",">50"],
@@ -298,37 +200,84 @@ def render_employee_dashboard():
     st.markdown("Policy on Diversity and Inclusion – BRSR P5, GRI 405")
     st.text_input("Upload / Share link of Policy Here", key="diversity_policy")
 
+    # --- Retention & Turnover ---
+    st.subheader("Retention & Turnover")
+    st.markdown("Average Tenure of Employees – BRSR P5")
+    st.number_input("Average Tenure (years)", min_value=0.0, key="avg_tenure")
+    st.markdown("Employee Turnover Rate – BRSR P5, GRI 405")
+    st.number_input("Turnover Rate (%)", min_value=0.0, max_value=100.0, key="turnover_rate")
+
+    # --- Training & Development ---
+    st.subheader("Training & Development")
+    st.markdown("Type of Trainings – GRI 405")
+    st.text_area("List training types", key="training_types")
+    st.markdown("Number of Employees Trained – BRSR P5, GRI 404")
+    if "trained_employees" not in st.session_state.employee_data:
+        st.session_state.employee_data["trained_employees"] = pd.DataFrame({
+            "": ["Male","Female","Total"], "Count":[0,0,0]
+        })
+    st.session_state.employee_data["trained_employees"] = st.data_editor(
+        st.session_state.employee_data["trained_employees"], key="trained_emp"
+    )
+    st.markdown("Total Training Hours – BRSR P5, GRI 404")
+    st.number_input("Total Training Hours", min_value=0.0, key="training_hours")
+
+    # --- Employee Welfare & Engagement ---
+    st.subheader("Employee Welfare & Engagement")
+    st.markdown("Employee Engagement Survey Done? – BRSR P5")
+    st.selectbox("Survey Done", ["Yes","No"], key="engagement_survey")
+    st.markdown("Parental Leave Policy – BRSR P5")
+    st.text_input("Details of Policy", key="parental_leave")
+    st.markdown("Benefits Provided – GRI 201, GRI 401, SASB, BRSR P3, BRSR P5")
+    st.text_area("Benefits (PF/Retirement, Health Insurance, Paid Leave)", key="benefits")
+
 # ---------------------------
-# Main Page Routing
+# SDG Dashboard
 # ---------------------------
-if st.session_state.page=="Home":
+def render_sdg_dashboard():
+    st.title("Sustainable Development Goals (SDGs)")
+    st.subheader("Company Engagement by SDG")
+
+    num_cols = 4
+    rows = (len(SDG_LIST) + num_cols - 1) // num_cols
+    idx = 0
+    for r in range(rows):
+        cols = st.columns(num_cols)
+        for c in range(num_cols):
+            if idx >= len(SDG_LIST):
+                break
+            sdg_name = SDG_LIST[idx]
+            sdg_color = SDG_COLORS[idx]
+            sdg_number = idx + 1
+
+            # Engagement slider inside the card
+            engagement = st.session_state.sdg_engagement.get(sdg_number, 0)
+            with cols[c]:
+                st.markdown(f"""
+                <div class='sdg-card' style='background-color:{sdg_color}'>
+                    <div class='sdg-number'>SDG {sdg_number}</div>
+                    <div class='sdg-name'>{sdg_name}</div>
+                    <div class='sdg-percent'>Engagement: {engagement}%</div>
+                </div>
+                """, unsafe_allow_html=True)
+                engagement = st.slider("", 0, 100, value=engagement, key=f"sdg{sdg_number}", label_visibility="collapsed")
+                st.session_state.sdg_engagement[sdg_number] = engagement
+            idx += 1
+
+# ---------------------------
+# Render Pages
+# ---------------------------
+if st.session_state.page == "Home":
     st.title("EinTrust Sustainability Dashboard")
-    st.text("Welcome to the dashboard")
-    st.subheader("Key Metrics Summary")
-    kpis = calculate_kpis()
-    c1,c2,c3,c4 = st.columns(4)
-    for col, label, value, color in zip(
-        [c1,c2,c3,c4],
-        ["Total Quantity", "Scope 1", "Scope 2", "Scope 3"],
-        [kpis['Total Quantity'], kpis['Scope 1'], kpis['Scope 2'], kpis['Scope 3']],
-        ["#ffffff", SCOPE_COLORS['Scope 1'], SCOPE_COLORS['Scope 2'], SCOPE_COLORS['Scope 3']]
-    ):
-        col.markdown(f"""
-        <div class='kpi'>
-            <div class='kpi-value' style='color:{color}'>{format_indian(value)}</div>
-            <div class='kpi-unit'>{kpis['Unit']}</div>
-            <div class='kpi-label'>{label.lower()}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-elif st.session_state.page=="GHG":
-    render_ghg_dashboard()
-
-elif st.session_state.page=="Energy":
-    render_energy_dashboard()
-
-elif st.session_state.page=="SDG":
+    st.info("Home KPIs and summary under development")
+elif st.session_state.page == "GHG":
+    st.subheader("GHG Emissions page under construction")
+elif st.session_state.page == "Energy":
+    st.subheader("Energy page under construction")
+elif st.session_state.page == "SDG":
     render_sdg_dashboard()
-
-elif st.session_state.page=="Employee":
+elif st.session_state.page == "Employee":
     render_employee_dashboard()
+else:
+    st.subheader(f"{st.session_state.page} section")
+    st.info("This section is under development. Please select other pages from sidebar.")

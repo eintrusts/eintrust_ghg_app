@@ -100,6 +100,7 @@ with st.sidebar:
         sidebar_button("Policies")
         sidebar_button("Compliance")
         sidebar_button("Risk Management")
+        sidebar_button("SDG")  # Added SDG button here
 
 # ---------------------------
 # Initialize Data
@@ -258,7 +259,7 @@ def render_energy_dashboard(include_input=True, show_chart=True):
         all_energy["Month"] = pd.Categorical(all_energy.get("Month", months[0]), categories=months, ordered=True)
         monthly_trend = all_energy.groupby(["Month","Type"])["Energy_kWh"].sum().reset_index()
         st.subheader("Monthly Energy Consumption (kWh)")
-        fig = px.bar(monthly_trend, x="Month", y="Energy_KWh", color="Type", barmode="stack",
+        fig = px.bar(monthly_trend, x="Month", y="Energy_kWh", color="Type", barmode="stack",
                      color_discrete_map=ENERGY_COLORS)
         st.plotly_chart(fig, use_container_width=True)
 

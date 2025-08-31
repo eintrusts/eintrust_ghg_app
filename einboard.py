@@ -26,13 +26,6 @@ html, body, [class*="css"] { font-family: 'Roboto', sans-serif; }
 .kpi-unit { font-size: 16px; font-weight: 500; color: #cfd8dc; margin-bottom: 5px; }
 .kpi-label { font-size: 14px; color: #cfd8dc; letter-spacing: 0.5px; }
 .stDataFrame { color: #e6edf3; font-family: 'Roboto', sans-serif; }
-
-.sidebar-button {
-    width: 100%; padding: 0.4rem; border-radius: 0.3rem; text-align: left; margin-bottom: 0.2rem;
-    color: #e6edf3; background-color: #12131a; border: none; font-size: 16px;
-}
-.sidebar-button:hover { background-color: #1a1b22; }
-.sidebar-button-active { background-color: forestgreen; color: white; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -58,53 +51,68 @@ def format_indian(n: float) -> str:
     return ("-" if x < 0 else "") + res
 
 # ---------------------------
-# Sidebar & Navigation
+# Sidebar & Navigation (dynamic)
 # ---------------------------
 if "page" not in st.session_state:
     st.session_state.page = "Home"
 
-def sidebar_button(label, page_name):
-    active = st.session_state.page == page_name
-    btn_color = "sidebar-button-active" if active else "sidebar-button"
-    if st.button(label, key=page_name):
-        st.session_state.page = page_name
+# Page structure for dynamic generation
+sidebar_structure = {
+    "Home": [],
+    "Environment": ["GHG","Energy","Water","Waste","Biodiversity"],
+    "Social": ["Employee","Health & Safety","CSR"],
+    "Governance": ["Board","Policies","Compliance","Risk Management"]
+}
+
+def render_sidebar(structure):
+    st.image("https://github.com/eintrusts/eintrust_ghg_app/blob/main/EinTrust%20%20(2).png?raw=true", use_container_width=True)
+    st.markdown("---")
+    for section, pages in structure.items():
+        if section != "Home":
+            exp = st.expander(section, expanded=(section=="Environment"))
+            with exp:
+                for page_name in pages:
+                    active = st.session_state.page == page_name
+                    if st.button(page_name, key=page_name):
+                        st.session_state.page = page_name
+                        st.experimental_rerun()
+                    st.markdown(f"""
+                    <style>
+                    div.stButton > button[key="{page_name}"] {{
+                        all: unset; cursor: pointer; padding: 0.4rem; text-align: left;
+                        border-radius: 0.3rem; margin-bottom: 0.2rem;
+                        background-color: {'forestgreen' if active else '#12131a'};
+                        color: {'white' if active else '#e6edf3'};
+                        font-size: 16px;
+                    }}
+                    div.stButton > button[key="{page_name}"]:hover {{
+                        background-color: {'forestgreen' if active else '#1a1b22'};
+                    }}
+                    </style>
+                    """, unsafe_allow_html=True)
+    # Home button separately on top
+    active = st.session_state.page == "Home"
+    if st.button("Home", key="Home"):
+        st.session_state.page = "Home"
         st.experimental_rerun()
-    # Apply CSS for button highlight
     st.markdown(f"""
     <style>
-    div.stButton > button[key="{page_name}"] {{
+    div.stButton > button[key="Home"] {{
         all: unset; cursor: pointer; padding: 0.4rem; text-align: left;
         border-radius: 0.3rem; margin-bottom: 0.2rem;
         background-color: {'forestgreen' if active else '#12131a'};
         color: {'white' if active else '#e6edf3'};
         font-size: 16px;
     }}
-    div.stButton > button[key="{page_name}"]:hover {{
+    div.stButton > button[key="Home"]:hover {{
         background-color: {'forestgreen' if active else '#1a1b22'};
     }}
     </style>
     """, unsafe_allow_html=True)
 
+# Render sidebar dynamically
 with st.sidebar:
-    st.image("https://github.com/eintrusts/eintrust_ghg_app/blob/main/EinTrust%20%20(2).png?raw=true", use_container_width=True)
-    st.markdown("---")
-
-    sidebar_button("Home","Home")
-
-    env_exp = st.expander("Environment", expanded=True)
-    with env_exp:
-        for name in ["GHG","Energy","Water","Waste","Biodiversity"]:
-            sidebar_button(name,name)
-
-    social_exp = st.expander("Social", expanded=False)
-    with social_exp:
-        for name in ["Employee","Health & Safety","CSR"]:
-            sidebar_button(name,name)
-
-    gov_exp = st.expander("Governance", expanded=False)
-    with gov_exp:
-        for name in ["Board","Policies","Compliance","Risk Management"]:
-            sidebar_button(name,name)
+    render_sidebar(sidebar_structure)
 
 # ---------------------------
 # Initialize Data
@@ -124,21 +132,15 @@ scope_activities = {
     "Scope 2": {"Electricity Consumption": {"Grid Electricity": "Electricity from grid"}},
     "Scope 3": {"Business Travel": {"Air Travel": None}}
 }
-
 units_dict = {"Diesel Generator": "Liters", "Petrol Generator": "Liters", "Diesel Vehicle": "Liters",
               "Grid Electricity": "kWh"}
-
 months = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"]
-
 SCOPE_COLORS = {"Scope 1": "#81c784", "Scope 2": "#4db6ac", "Scope 3": "#aed581"}
 ENERGY_COLORS = {"Fossil": "#f39c12", "Renewable": "#2ecc71"}
 
 # ---------------------------
 # GHG & Energy dashboard functions
-# (Keep all your previous logic unchanged)
-# ---------------------------
-# calculate_kpis(), render_ghg_dashboard(), render_energy_dashboard() ...
-# (Copy all previous GHG and Energy dashboard functions here exactly as before)
+# (Keep all previous logic for calculate_kpis(), render_ghg_dashboard(), render_energy_dashboard() here exactly as before)
 # ---------------------------
 
 # ---------------------------

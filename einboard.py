@@ -148,7 +148,7 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
             df["Month"] = np.random.choice(months, len(df))
         df["Month"] = pd.Categorical(df["Month"], categories=months, ordered=True)
         monthly_trend = df.groupby(["Month","Scope"])["Quantity"].sum().reset_index()
-        st.subheader("Monthly GHG Emissions Trend")
+        st.subheader("Monthly GHG Emissions")
         fig = px.bar(monthly_trend, x="Month", y="Quantity", color="Scope", barmode="stack",
                      color_discrete_map=SCOPE_COLORS)
         st.plotly_chart(fig, use_container_width=True)

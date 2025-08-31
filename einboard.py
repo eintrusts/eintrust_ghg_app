@@ -9,35 +9,61 @@ from io import BytesIO
 # --- Page Config ---
 st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout="wide")
 
-# --- Custom CSS for colors and background ---
-st.markdown(
-    """
-    <style>
-    /* Set off-white background */
-    .stApp {
-        background-color: #fefcf5;
-    }
-    /* Royal blue headings */
-    .stHeader, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
-        color: #4169E1;
-    }
-    /* Forest green normal text */
-    .stText, .stMarkdown p, .stTextInput>div>div>input {
-        color: #228B22;
-    }
-    /* Sidebar background */
-    .css-1d391kg {  /* sidebar container */
-        background-color: #fefcf5;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+# --- Custom CSS for theme ---
+st.markdown("""
+<style>
+/* Overall background */
+.stApp {
+    background-color: #fdfcf6;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Sidebar */
+.css-1d391kg {
+    background-color: #f5f5f0;
+}
+
+/* Headings */
+h1, h2, h3, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
+    color: #4169E1;
+    font-weight: 700;
+}
+
+/* Normal text */
+.stText, .stMarkdown p, .stTextInput>div>div>input, .stNumberInput>div>div>input {
+    color: #228B22;
+    font-weight: 500;
+}
+
+/* Buttons */
+.stButton>button {
+    background-color: #4169E1;
+    color: white;
+    font-weight: bold;
+    border-radius: 6px;
+    padding: 0.5em 1em;
+}
+.stButton>button:hover {
+    background-color: #228B22;
+    color: white;
+}
+
+/* Multiselect and other widgets */
+.css-1hynsf2, .css-1a9e8bs, .stSelectbox>div>div>div>div {
+    color: #228B22;
+}
+
+/* Dataframe styling */
+.stDataFrame>div>div>div>div {
+    color: #228B22;
+}
+</style>
+""", unsafe_allow_html=True)
 
 st.title("Einboard")
 st.markdown("Estimate Scope 1, 2, and 3 emissions for net zero journey.")
 
-# --- Sidebar: GitHub Profile Photo Only ---
+# --- Sidebar: GitHub Profile Photo ---
 GITHUB_PROFILE_PHOTO_URL = "https://github.com/eintrusts.png"
 try:
     response = requests.get(GITHUB_PROFILE_PHOTO_URL)
@@ -130,8 +156,11 @@ with col2:
     chart_df = chart_df[chart_df["Emissions"]>0]
 
     if not chart_df.empty:
+        # Pie chart with royal blue & forest green slices
+        colors = ['#4169E1','#228B22','#1F3A93']  # Royal blue, forest green, dark blue
         fig = px.pie(chart_df, names="Scope", values="Emissions",
-                     color_discrete_sequence=px.colors.sequential.Purples_r, hole=0.45)
+                     color="Scope", color_discrete_sequence=colors, hole=0.45)
+        fig.update_traces(textinfo='percent+label', textfont_size=14)
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No data to show chart.")

@@ -92,7 +92,7 @@ if "renewable_entries" not in st.session_state:
     st.session_state.renewable_entries = pd.DataFrame(columns=["Source","Location","Month","Energy_kWh","CO2e_kg","Type"])
 
 # ---------------------------
-# GHG Dashboard
+# Constants
 # ---------------------------
 scope_activities = {
     "Scope 1": {"Stationary Combustion": {"Diesel Generator": "Generator running on diesel",
@@ -107,6 +107,12 @@ units_dict = {"Diesel Generator": "Liters", "Petrol Generator": "Liters", "Diese
 
 months = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"]
 
+SCOPE_COLORS = {"Scope 1": "#81c784", "Scope 2": "#4db6ac", "Scope 3": "#aed581"}
+ENERGY_COLORS = {"Fossil": "#f39c12", "Renewable": "#2ecc71"}
+
+# ---------------------------
+# GHG Dashboard
+# ---------------------------
 def calculate_kpis():
     df = st.session_state.entries
     summary = {"Scope 1": 0.0, "Scope 2": 0.0, "Scope 3": 0.0, "Total Quantity": 0.0, "Unit": "tCO₂e"}
@@ -116,10 +122,9 @@ def calculate_kpis():
         summary["Total Quantity"] = df["Quantity"].sum()
     return summary
 
-def render_ghg_dashboard(include_data=True):
+def render_ghg_dashboard(include_data=True, show_chart=True):
     st.subheader("GHG Emissions Dashboard")
     kpis = calculate_kpis()
-    SCOPE_COLORS = {"Scope 1": "#81c784", "Scope 2": "#4db6ac", "Scope 3": "#aed581"}
     c1, c2, c3, c4 = st.columns(4)
     for col, label, value, color in zip(
         [c1, c2, c3, c4], 
@@ -135,17 +140,16 @@ def render_ghg_dashboard(include_data=True):
         </div>
         """, unsafe_allow_html=True)
 
-    # Monthly trend for GHG (all scopes) on GHG page only
-    if not st.session_state.entries.empty:
+    # Show monthly trend only on GHG page
+    if show_chart and not st.session_state.entries.empty:
         df = st.session_state.entries.copy()
-        # Assign random months if Month column missing
         if "Month" not in df.columns:
             df["Month"] = np.random.choice(months, len(df))
         df["Month"] = pd.Categorical(df["Month"], categories=months, ordered=True)
         monthly_trend = df.groupby(["Month","Scope"])["Quantity"].sum().reset_index()
         st.subheader("Monthly GHG Emissions Trend")
-        fig = px.line(monthly_trend, x="Month", y="Quantity", color="Scope", markers=True,
-                      color_discrete_map=SCOPE_COLORS)
+        fig = px.bar(monthly_trend, x="Month", y="Quantity", color="Scope", barmode="stack",
+                     color_discrete_map=SCOPE_COLORS)
         st.plotly_chart(fig, use_container_width=True)
 
     if include_data:
@@ -195,13 +199,12 @@ def render_ghg_dashboard(include_data=True):
 # ---------------------------
 def render_energy_dashboard(include_input=True, show_chart=True):
     st.subheader("⚡ Energy & CO₂e Dashboard (Apr→Mar)")
-
+    df = st.session_state.entries
     calorific_values = {"Diesel": 35.8,"Petrol": 34.2,"LPG":46.1,"CNG":48,"Coal":24,"Biomass":15}
     emission_factors = {"Diesel":2.68,"Petrol":2.31,"LPG":1.51,"CNG":2.02,"Coal":2.42,"Biomass":0.0,
                         "Electricity":0.82,"Solar":0.0,"Wind":0.0,"Purchased Green Energy":0.0,"Biogas":0.0}
-    COLOR_PALETTE = {"Fossil": "#f39c12", "Renewable": "#2ecc71"}
 
-    df = st.session_state.entries
+    # Fossil energy
     scope1_2_data = df[df["Scope"].isin(["Scope 1","Scope 2"])].copy() if not df.empty else pd.DataFrame()
     if not scope1_2_data.empty:
         def compute_energy(row):
@@ -213,22 +216,20 @@ def render_energy_dashboard(include_input=True, show_chart=True):
             return pd.Series([energy_kwh, co2e])
         scope1_2_data[["Energy_kWh","CO2e_kg"]] = scope1_2_data.apply(compute_energy, axis=1)
         scope1_2_data["Type"]="Fossil"
-    scope1_2_data["Month"] = np.random.choice(months, len(scope1_2_data)) if not scope1_2_data.empty else []
+        scope1_2_data["Month"] = np.random.choice(months, len(scope1_2_data))
+    all_energy = pd.concat([scope1_2_data.rename(columns={"Sub-Activity":"Fuel"}), st.session_state.renewable_entries], ignore_index=True) if not st.session_state.renewable_entries.empty else scope1_2_data
 
-    all_energy = pd.concat([scope1_2_data.rename(columns={"Sub-Activity":"Fuel"}), st.session_state.renewable_entries], ignore_index=True)
-
+    # KPI Cards
     total_energy = all_energy.groupby("Type")["Energy_kWh"].sum().to_dict() if not all_energy.empty else {}
     fossil_energy = total_energy.get("Fossil",0)
     renewable_energy = total_energy.get("Renewable",0)
     total_sum = fossil_energy + renewable_energy
-
-    # KPI Cards
     c1,c2,c3 = st.columns(3)
     for col, label, value, color in zip(
         [c1,c2,c3],
         ["Total Energy (kWh)","Fossil Energy (kWh)","Renewable Energy (kWh)"],
         [total_sum,fossil_energy,renewable_energy],
-        ["#ffffff",COLOR_PALETTE["Fossil"],COLOR_PALETTE["Renewable"]]
+        ["#ffffff",ENERGY_COLORS["Fossil"],ENERGY_COLORS["Renewable"]]
     ):
         col.markdown(f"""
         <div class='kpi'>
@@ -238,13 +239,13 @@ def render_energy_dashboard(include_input=True, show_chart=True):
         </div>
         """, unsafe_allow_html=True)
 
-    # Monthly trend chart (Energy page only)
+    # Monthly trend chart (stacked bar)
     if show_chart and not all_energy.empty:
         all_energy["Month"] = pd.Categorical(all_energy.get("Month", months[0]), categories=months, ordered=True)
         monthly_trend = all_energy.groupby(["Month","Type"])["Energy_kWh"].sum().reset_index()
         st.subheader("Monthly Energy Consumption (kWh)")
-        fig = px.line(monthly_trend, x="Month", y="Energy_kWh", color="Type",
-                      color_discrete_map=COLOR_PALETTE, markers=True)
+        fig = px.bar(monthly_trend, x="Month", y="Energy_kWh", color="Type", barmode="stack",
+                     color_discrete_map=ENERGY_COLORS)
         st.plotly_chart(fig, use_container_width=True)
 
     # Renewable input form
@@ -265,17 +266,19 @@ def render_energy_dashboard(include_input=True, show_chart=True):
         if renewable_list and st.button("Add Renewable Energy Entries"):
             new_entries_df = pd.DataFrame(renewable_list)
             st.session_state.renewable_entries = pd.concat([st.session_state.renewable_entries, new_entries_df], ignore_index=True)
-            st.success(f"{len(new_entries_df)} renewable entries added!")
+            st.success(f"{len(new_entries_df)} entries added successfully!")
+            st.experimental_rerun()
 
 # ---------------------------
 # Render Pages
 # ---------------------------
 if st.session_state.page == "Home":
     st.title("🌍 Welcome to EinTrust Dashboard")
-    render_ghg_dashboard(include_data=False)
+    st.info("GHG & Energy KPIs only. Select pages from sidebar for details.")
+    render_ghg_dashboard(include_data=False, show_chart=False)
     render_energy_dashboard(include_input=False, show_chart=False)
 elif st.session_state.page == "GHG":
-    render_ghg_dashboard(include_data=True)
+    render_ghg_dashboard(include_data=True, show_chart=True)
 elif st.session_state.page == "Energy":
     render_energy_dashboard(include_input=True, show_chart=True)
 else:

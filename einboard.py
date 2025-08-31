@@ -53,8 +53,11 @@ def format_indian(n: float) -> str:
 if "page" not in st.session_state:
     st.session_state.page = "Home"
 
-def sidebar_button(label):
+ICON_COLOR = "forestgreen"
+
+def sidebar_button(label, icon=""):
     active = st.session_state.page == label
+    display_label = f"<span style='color:{ICON_COLOR}'>{icon}</span> {label}" if icon else label
     if st.button(label, key=label):
         st.session_state.page = label
     st.markdown(f"""
@@ -72,43 +75,38 @@ def sidebar_button(label):
 with st.sidebar:
     st.image("https://github.com/eintrusts/eintrust_ghg_app/blob/main/EinTrust%20%20(2).png?raw=true", use_container_width=True)
     st.markdown("---")
-    sidebar_button("Home")
     
-    env_exp = st.expander("Environment", expanded=True)
-    with env_exp:
-        sidebar_button("GHG")
-        sidebar_button("Energy")
-        sidebar_button("Water")
-        sidebar_button("Waste")
-        sidebar_button("Biodiversity")
+    sidebar_button("Home", "🏠")
     
-    social_exp = st.expander("Social")
-    with social_exp:
-        sidebar_button("Employee")
-        sidebar_button("Health & Safety")
-        sidebar_button("CSR")
+    # Environment Section
+    st.markdown("**🌱 Environment**")
+    for env_item, icon in zip(["GHG", "Energy", "Water", "Waste", "Biodiversity"],
+                              ["🌍","⚡","💧","🗑️","🐾"]):
+        sidebar_button(env_item, icon)
     
-    gov_exp = st.expander("Governance")
-    with gov_exp:
-        sidebar_button("Board")
-        sidebar_button("Policies")
-        sidebar_button("Compliance")
-        sidebar_button("Risk Management")
+    # Social Section
+    st.markdown("**👥 Social**")
+    for social_item, icon in zip(["Employee", "Health & Safety", "CSR"],
+                                 ["🧑‍💼","🩺","🎗️"]):
+        sidebar_button(social_item, icon)
     
-    sidebar_button("SDG")
+    # Governance Section
+    st.markdown("**🏛️ Governance**")
+    for gov_item, icon in zip(["Board", "Policies", "Compliance", "Risk Management"],
+                              ["🗂️","📜","✅","⚠️"]):
+        sidebar_button(gov_item, icon)
     
-    # ---------------------------
-    # Reports Dropdown
-    # ---------------------------
-    reports_exp = st.expander("Reports")
-    with reports_exp:
-        sidebar_button("BRSR")
-        sidebar_button("GRI")
-        sidebar_button("CDP")
-        sidebar_button("TCFD")
+    sidebar_button("SDG", "🎯")
     
-    sidebar_button("Settings")
-    sidebar_button("Log Out")
+    # Reports Section
+    st.markdown("**📊 Reports**")
+    for report_item, icon in zip(["BRSR", "GRI", "CDP", "TCFD"],
+                                 ["📝","🌐","🔥","📈"]):
+        sidebar_button(report_item, icon)
+    
+    # Settings & Log Out
+    sidebar_button("Settings", "⚙️")
+    sidebar_button("Log Out", "🔓")
 
 # ---------------------------
 # Initialize Data
@@ -171,7 +169,6 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
         fig = px.bar(monthly_trend, x="Month", y="Quantity", color="Scope", barmode="stack", color_discrete_map=SCOPE_COLORS)
         st.plotly_chart(fig, use_container_width=True)
     
-    # --- Data Entry Form ---
     if include_data:
         scope = st.selectbox("Select Scope", list(scope_activities.keys()))
         activity = st.selectbox("Select Activity", list(scope_activities[scope].keys()))
@@ -291,11 +288,11 @@ if st.session_state.page=="Home":
     render_ghg_dashboard(include_data=False, show_chart=False)
     render_energy_dashboard(include_input=False, show_chart=False)
 elif st.session_state.page=="GHG":
-    render_ghg_dashboard(include_data=True, show_chart=True)
+    render_ghg_dashboard()
 elif st.session_state.page=="Energy":
-    render_energy_dashboard(include_input=True, show_chart=True)
+    render_energy_dashboard()
 elif st.session_state.page=="SDG":
     render_sdg_dashboard()
 else:
-    st.subheader(f"{st.session_state.page} section")
-    st.info("This section is under development. Please select other pages from sidebar.")
+    st.title(st.session_state.page)
+    st.info("This section is under development.")

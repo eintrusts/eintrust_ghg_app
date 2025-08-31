@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 
-# ---------------------------
+# --------------------------
 # Config & Dark Theme CSS
 # ---------------------------
 st.set_page_config(page_title="EinTrust Sustainability Dashboard", page_icon="🌍", layout="wide")

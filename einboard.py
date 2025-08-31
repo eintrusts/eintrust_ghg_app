@@ -32,12 +32,6 @@ SCOPE_COLORS = {
     "Scope 3": "#FFC107"   # Amber
 }
 
-FORECAST_COLORS = {
-    "Scope 1": "#81C784",
-    "Scope 2": "#64B5F6",
-    "Scope 3": "#FFD54F"
-}
-
 def format_indian(n: float) -> str:
     try:
         x = int(round(float(n)))
@@ -107,7 +101,6 @@ st.sidebar.header("Add Activity Data")
 add_mode = st.sidebar.checkbox("Add Entry Mode", value=False)
 
 if add_mode:
-    # Select Scope
     scope_options = ["Scope 1","Scope 2","Scope 3"]
     selected_scope = st.sidebar.selectbox("Select Scope", scope_options)
     
@@ -209,7 +202,7 @@ else:
 # ---------------------------
 # Emissions Trend Over Time
 # ---------------------------
-st.subheader("📈 Emissions Trend Over Time (Monthly) - Actual vs Forecast")
+st.subheader("📈 Emissions Trend Over Time (Monthly)")
 if not df_log.empty:
     df_log["Timestamp"] = pd.to_datetime(df_log["Timestamp"], errors="coerce")
     df_log = df_log.dropna(subset=["Timestamp"])
@@ -219,30 +212,10 @@ if not df_log.empty:
     pivot = stacked.pivot(index="MonthLabel", columns="Scope", values="Emissions (tCO₂e)").reindex(MONTH_ORDER).fillna(0)
     pivot = pivot.reset_index()
     
-    # Forecast
-    forecast_df = pd.DataFrame({"MonthLabel": MONTH_ORDER})
-    for sc in ["Scope 1","Scope 2","Scope 3"]:
-        y = pivot[sc].values.astype(float)
-        x = np.arange(len(y))
-        observed = np.where(y>0)[0]
-        if len(observed)>=2:
-            coef = np.polyfit(observed, y[observed],1)
-            forecast = np.polyval(coef, x)
-            forecast_vals = [np.nan if i<=observed.max() else max(0,float(forecast[i])) for i in range(len(x))]
-        else:
-            forecast_vals = [np.nan]*len(x)
-        forecast_df[sc] = forecast_vals
-    
     # Plot actual stacked bar
     melt = pivot.melt(id_vars=["MonthLabel"], var_name="Scope", value_name="Emissions")
     fig_bar = px.bar(melt, x="MonthLabel", y="Emissions", color="Scope", color_discrete_map=SCOPE_COLORS,
                      template="plotly_dark", barmode="stack", hover_data={"Emissions":":,.2f"})
-    
-    # Add forecast lines
-    for sc in ["Scope 1","Scope 2","Scope 3"]:
-        fig_bar.add_scatter(x=forecast_df["MonthLabel"], y=forecast_df[sc], mode="lines+markers",
-                            name=f"{sc} Forecast", line=dict(color=FORECAST_COLORS[sc], dash="dot"),
-                            hovertemplate=f"{sc} Forecast: %{{y:,.2f}} tCO₂e<br>%{{x}}")
     
     fig_bar.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3", xaxis_title="", yaxis_title="Emissions (tCO₂e)")
     st.plotly_chart(fig_bar, use_container_width=True)

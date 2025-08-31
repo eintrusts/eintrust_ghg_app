@@ -11,13 +11,15 @@ st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout
 st.title("Einboard")
 st.markdown("Estimate Scope 1, 2, and 3 emissions for net zero journey.")
 
-# --- Sidebar: GitHub Profile Photo as Logo ---
-GITHUB_PROFILE_PHOTO_URL = "https://avatars.githubusercontent.com/u/12345678?v=4"  # <-- replace with your URL
+# --- Sidebar: GitHub Profile Photo ---
+GITHUB_PROFILE_PHOTO_URL = "https://github.com/eintrusts.png"
+
 try:
     response = requests.get(GITHUB_PROFILE_PHOTO_URL)
     response.raise_for_status()
     img = Image.open(BytesIO(response.content))
     st.sidebar.image(img, use_container_width=True)
+    st.sidebar.markdown("**EinTrusts**")  # Show username below photo
 except Exception as e:
     st.sidebar.write("Logo not available:", e)
 

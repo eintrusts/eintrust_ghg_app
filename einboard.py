@@ -201,7 +201,7 @@ if add_mode and emission_factors.empty:
 # Main dashboard header
 # ---------------------------
 st.title("🌍 EinTrust GHG Dashboard")
-st.markdown("Estimate Scope 1, 2 and 3 emissions. Apr–Mar cycle. Dark energy-saving theme.")
+st.markdown("Estimate Scope 1, 2 and 3 emissions for net zero journey")
 
 # ---------------------------
 # Manual Archive & Reset (dashboard)

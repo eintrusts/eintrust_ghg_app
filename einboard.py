@@ -6,16 +6,14 @@ import io
 import plotly.express as px
 
 # ---------------------------
-# Config & Dark Theme CSS with professional dashboard look
+# Config & Dark Theme with professional look
 # ---------------------------
 st.set_page_config(page_title="EinTrust Dashboard", page_icon="🌍", layout="wide")
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
 
-html, body, [class*="css"] {
-    font-family: 'Roboto', sans-serif;
-}
+html, body, [class*="css"] { font-family: 'Roboto', sans-serif; }
 
 .stApp { background-color: #0d1117; color: #e6edf3; }
 
@@ -38,34 +36,16 @@ html, body, [class*="css"] {
     transform: scale(1.05);
     box-shadow: 0 8px 20px rgba(0,0,0,0.6);
 }
-.kpi-value {
-    font-size: 28px;
-    font-weight: 700;
-    color: #ffffff;
-    margin-bottom: 5px;
-}
-.kpi-unit {
-    font-size: 16px;
-    font-weight: 500;
-    color: #cfd8dc;
-    margin-bottom: 5px;
-}
-.kpi-label {
-    font-size: 14px;
-    color: #cfd8dc;
-    letter-spacing: 0.5px;
-}
+.kpi-value { font-size: 28px; font-weight: 700; color: #ffffff; margin-bottom: 5px; }
+.kpi-unit { font-size: 16px; font-weight: 500; color: #cfd8dc; margin-bottom: 5px; }
+.kpi-label { font-size: 14px; color: #cfd8dc; letter-spacing: 0.5px; }
 
-/* Dataframe styling */
 .stDataFrame { color: #e6edf3; font-family: 'Roboto', sans-serif; }
 
-/* Sidebar buttons */
 .sidebar .stButton>button { 
     background:#198754; color:white; margin-bottom:5px; width:100%; font-family: 'Roboto', sans-serif; 
 }
-.stSelectbox, .stNumberInput, .stFileUploader, .stDownloadButton {
-    font-family: 'Roboto', sans-serif;
-}
+.stSelectbox, .stNumberInput, .stFileUploader, .stDownloadButton { font-family: 'Roboto', sans-serif; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -95,10 +75,10 @@ def format_indian(n: float) -> str:
 # ---------------------------
 if "entries" not in st.session_state:
     st.session_state.entries = pd.DataFrame(columns=["Scope","Activity","Sub-Activity","Specific Item","Quantity","Unit"])
-if "energy_entries" not in st.session_state:
-    st.session_state.energy_entries = pd.DataFrame(columns=["Source","Location","Month","Energy_kWh","CO2e_kg","Type"])
 if "page" not in st.session_state:
     st.session_state.page = "Home"
+if "energy_data" not in st.session_state:
+    st.session_state.energy_data = pd.DataFrame(columns=["Type","Fuel_Source","Energy_kWh","CO2e_kg","Month","Location"])
 
 # ---------------------------
 # Sidebar
@@ -144,7 +124,7 @@ with st.sidebar:
             st.session_state.page = "Risk Management"
 
 # ---------------------------
-# GHG module
+# Constants
 # ---------------------------
 scope_activities = {
     "Scope 1": {"Stationary Combustion": {"Diesel Generator": "Generator running on diesel",
@@ -153,55 +133,123 @@ scope_activities = {
     "Scope 2": {"Electricity Consumption": {"Grid Electricity": "Electricity from grid"}},
     "Scope 3": {"Business Travel": {"Air Travel": None}}
 }
+
 units_dict = {"Diesel Generator": "Liters", "Petrol Generator": "Liters", "Diesel Vehicle": "Liters",
               "Grid Electricity": "kWh"}
 
-def calculate_kpis():
-    df = st.session_state.entries
-    summary = {"Scope 1": 0.0, "Scope 2": 0.0, "Scope 3": 0.0, "Total Quantity": 0.0, "Unit": "tCO₂e"}
-    if not df.empty:
-        for scope in ["Scope 1","Scope 2","Scope 3"]:
-            summary[scope] = df[df["Scope"]==scope]["Quantity"].sum()
-        summary["Total Quantity"] = df["Quantity"].sum()
-    return summary
+months = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"]
 
-def render_kpis(kpis, title="", colors=None):
-    cols = st.columns(len(kpis)-1)
-    for col,label in zip(cols,list(kpis.keys())[:-1]):
-        value = kpis[label]
-        color = colors.get(label, "#ffffff") if colors else "#ffffff"
+emission_factors_energy = {  # kg CO2e/unit
+    "Diesel": 2.68, "Petrol": 2.31, "LPG": 1.51, "CNG": 2.02, "Coal": 2.42, "Biomass": 0.0,
+    "Electricity": 0.82, "Solar":0.0, "Wind":0.0, "Purchased Green Energy":0.0, "Biogas":0.0
+}
+
+energy_colors = {"Fossil":"#f06292","Renewable":"#4db6ac","Total":"#ffffff"}
+
+# ---------------------------
+# Helper functions
+# ---------------------------
+def update_energy_from_ghg():
+    """Update energy_data based on GHG entries for fossil fuels & grid electricity"""
+    df = st.session_state.entries
+    energy_list = []
+    for idx, row in df.iterrows():
+        month_list = months
+        qty = row["Quantity"]
+        fuel = row["Sub-Activity"]
+        if fuel=="Grid Electricity":
+            etype = "Fossil"
+            energy_kwh = qty
+            co2e = qty * emission_factors_energy.get("Electricity",0)
+        else:
+            etype = "Fossil"
+            energy_kwh = qty  # Assuming quantity in liters
+            co2e = qty * emission_factors_energy.get(fuel.split()[0],0)
+        for m in month_list:
+            energy_list.append({"Type":etype,"Fuel_Source":fuel,"Energy_kWh":energy_kwh/12,
+                                "CO2e_kg":co2e/12,"Month":m,"Location":"NA"})
+    st.session_state.energy_data = pd.DataFrame(energy_list)
+
+def render_kpis(kpi_dict, title, colors=None):
+    st.markdown(f"### {title}")
+    cols = st.columns(len(kpi_dict))
+    for col, (label, value) in zip(cols, kpi_dict.items()):
+        color = colors[label] if colors else "#ffffff"
         col.markdown(f"""
-        <div class='kpi'>
-            <div class='kpi-value' style='color:{color}'>{format_indian(value)}</div>
-            <div class='kpi-unit'>{kpis['Unit']}</div>
-            <div class='kpi-label'>{label.lower()}</div>
-        </div>
+            <div class='kpi'>
+                <div class='kpi-value' style='color:{color}'>{format_indian(value)}</div>
+                <div class='kpi-unit'>kWh / kg CO₂e</div>
+                <div class='kpi-label'>{label.lower()}</div>
+            </div>
         """, unsafe_allow_html=True)
 
-# ---------------------------
-# Energy module
-# ---------------------------
-months = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"]
-emission_factors_energy = {"Diesel":2.68,"Petrol":2.31,"LPG":1.51,"CNG":2.02,"Coal":2.42,
-                           "Electricity":0.82,"Solar":0.0,"Wind":0.0,"Purchased Green Energy":0.0,"Biogas":0.0}
-
-def get_energy_kpis():
-    df = st.session_state.energy_entries
-    total = df["Energy_kWh"].sum() if not df.empty else 0
-    fossil = df[df["Type"]=="Fossil"]["Energy_kWh"].sum() if not df.empty else 0
-    renewable = df[df["Type"]=="Renewable"]["Energy_kWh"].sum() if not df.empty else 0
-    return {"Total":total,"Fossil":fossil,"Renewable":renewable,"Unit":"kWh"}
+def render_ghg_dashboard(include_data=True):
+    st.subheader("GHG emissions dashboard")
+    df = st.session_state.entries
+    total = df["Quantity"].sum() if not df.empty else 0
+    scope1 = df[df["Scope"]=="Scope 1"]["Quantity"].sum() if not df.empty else 0
+    scope2 = df[df["Scope"]=="Scope 2"]["Quantity"].sum() if not df.empty else 0
+    scope3 = df[df["Scope"]=="Scope 3"]["Quantity"].sum() if not df.empty else 0
+    kpis = {"Total Quantity":total,"Scope 1":scope1,"Scope 2":scope2,"Scope 3":scope3}
+    render_kpis(kpis,"GHG Emissions",{"Scope 1":"#81c784","Scope 2":"#4db6ac","Scope 3":"#aed581","Total Quantity":"#ffffff"})
+    
+    if include_data:
+        st.subheader("Add activity data")
+        scope = st.selectbox("Select scope", list(scope_activities.keys()))
+        activity = st.selectbox("Select activity / category", list(scope_activities[scope].keys()))
+        sub_options = scope_activities[scope][activity]
+        if scope != "Scope 3":
+            sub_activity = st.selectbox("Select sub-activity", list(sub_options.keys()))
+            st.info(sub_options[sub_activity])
+        else:
+            sub_activity = st.selectbox("Select sub-category", list(sub_options.keys()))
+        specific_item = None
+        if scope == "Scope 3":
+            items = scope_activities[scope][activity][sub_activity]
+            if items is not None:
+                specific_item = st.selectbox("Select specific item", items)
+        unit = units_dict.get(sub_activity,"Number of flights" if sub_activity=="Air Travel" else "km / kg / tonnes")
+        quantity = st.number_input(f"Enter quantity ({unit})", min_value=0.0, format="%.2f")
+        uploaded_file = st.file_uploader("Upload CSV/XLS/XLSX/PDF (optional)", type=["csv","xls","xlsx","pdf"])
+        if st.button("Add entry"):
+            new_entry = {"Scope":scope,"Activity":activity,"Sub-Activity":sub_activity,
+                         "Specific Item":specific_item if specific_item else "",
+                         "Quantity":quantity,"Unit":unit}
+            st.session_state.entries = pd.concat([st.session_state.entries,pd.DataFrame([new_entry])],ignore_index=True)
+            st.success("Entry added successfully!")
+            update_energy_from_ghg()
+        if not st.session_state.entries.empty:
+            st.subheader("All entries")
+            display_df = st.session_state.entries.copy()
+            display_df["Quantity"] = display_df["Quantity"].apply(lambda x: format_indian(x))
+            st.dataframe(display_df)
+            csv = display_df.to_csv(index=False).encode('utf-8')
+            st.download_button("Download all entries as CSV", csv, "ghg_entries.csv","text/csv")
 
 def render_energy_dashboard(include_entry=True):
-    st.subheader("Energy & CO₂e dashboard")
+    st.subheader("Energy dashboard")
+    df = st.session_state.energy_data
+    if df.empty:
+        st.info("No energy data available. Add entries from GHG page or below.")
+        df = pd.DataFrame(columns=["Type","Fuel_Source","Energy_kWh","CO2e_kg","Month","Location"])
+    # KPIs
+    total_energy = df["Energy_kWh"].sum()
+    fossil_energy = df[df["Type"]=="Fossil"]["Energy_kWh"].sum()
+    renewable_energy = df[df["Type"]=="Renewable"]["Energy_kWh"].sum()
+    kpi_dict = {"Total":total_energy,"Fossil":fossil_energy,"Renewable":renewable_energy}
+    render_kpis(kpi_dict,"Energy Consumption",energy_colors)
     
-    energy_kpis = get_energy_kpis()
-    render_kpis(energy_kpis,"Energy consumption",{"Total":"#ffffff","Fossil":"#f06292","Renewable":"#4db6ac"})
+    # Monthly Trend stacked bar
+    monthly = df.groupby(["Month","Type"])["Energy_kWh"].sum().reset_index()
+    if not monthly.empty:
+        fig = px.bar(monthly, x="Month", y="Energy_kWh", color="Type", barmode="stack",
+                     labels={"Energy_kWh":"Energy (kWh)"}, color_discrete_map={"Fossil":"#f06292","Renewable":"#4db6ac"})
+        st.plotly_chart(fig,use_container_width=True)
     
     if include_entry:
-        st.subheader("Add renewable energy entry (annual)")
-        num_entries = st.number_input("Number of entries to add",1,10,1)
-        renewable_list = []
+        st.subheader("Add renewable energy entries")
+        num_entries = st.number_input("Number of renewable energy entries", min_value=1,max_value=20,value=1)
+        renewable_list=[]
         for i in range(int(num_entries)):
             col1,col2,col3 = st.columns([2,3,3])
             with col1:
@@ -209,82 +257,32 @@ def render_energy_dashboard(include_entry=True):
             with col2:
                 location = st.text_input(f"Location {i+1}", "", key=f"loc{i}")
             with col3:
-                annual_energy = st.number_input(f"Annual energy kWh {i+1}",0.0,key=f"annual{i}")
+                annual_energy = st.number_input(f"Annual Energy kWh {i+1}", min_value=0.0, key=f"annual_{i}")
             monthly_energy = annual_energy/12
             for m in months:
-                st.session_state.energy_entries = pd.concat([st.session_state.energy_entries,
-                    pd.DataFrame([{"Source":source,"Location":location,"Month":m,"Energy_kWh":monthly_energy,
-                                   "CO2e_kg":monthly_energy*emission_factors_energy.get(source,0),
-                                   "Type":"Renewable"}])],ignore_index=True)
-        
-        # Monthly trend with fossil & renewable
-        df = st.session_state.energy_entries.copy()
-        if not df.empty:
-            df_trend = df.groupby(["Month","Type"]).sum().reset_index()
-            df_trend["Month"] = pd.Categorical(df_trend["Month"], categories=months, ordered=True)
-            st.subheader("Monthly energy trend (kWh)")
-            fig = px.bar(df_trend, x="Month", y="Energy_kWh", color="Type", barmode="stack",
-                         color_discrete_map={"Fossil":"#f06292","Renewable":"#4db6ac"})
-            st.plotly_chart(fig,use_container_width=True)
-
-# ---------------------------
-# Combine fossil fuel from GHG to energy_entries
-# ---------------------------
-def update_energy_from_ghg():
-    df = st.session_state.entries
-    for _,row in df.iterrows():
-        # Only fuels in units_dict (Diesel Generator, etc.)
-        fuel_name = row["Sub-Activity"]
-        if fuel_name in ["Diesel Generator","Petrol Generator","Diesel Vehicle","Grid Electricity"]:
-            unit = row["Unit"]
-            qty = row["Quantity"]
-            co2e = qty * emission_factors_energy.get("Diesel" if "Diesel" in fuel_name else "Petrol",0) if "Generator" in fuel_name or "Vehicle" in fuel_name else qty*0.82
-            st.session_state.energy_entries = pd.concat([st.session_state.energy_entries,
-                pd.DataFrame([{"Source":fuel_name,"Location":"Default","Month":m,"Energy_kWh":qty if "Electricity" in fuel_name else 0,
-                               "CO2e_kg":co2e,"Type":"Fossil"} for m in months])],ignore_index=True)
+                renewable_list.append({"Type":"Renewable","Fuel_Source":source,"Energy_kWh":monthly_energy,
+                                       "CO2e_kg":monthly_energy*emission_factors_energy.get(source,0),
+                                       "Month":m,"Location":location})
+        if renewable_list:
+            st.session_state.energy_data = pd.concat([st.session_state.energy_data,pd.DataFrame(renewable_list)],ignore_index=True)
+        if renewable_list:
+            renewable_summary = pd.DataFrame(renewable_list).groupby(["Source","Location"]).sum().reset_index()
+            st.dataframe(renewable_summary)
+            csv_renew = pd.DataFrame(renewable_list).to_csv(index=False).encode('utf-8')
+            st.download_button("Download renewable entries", csv_renew,"renewable_entries.csv","text/csv")
 
 # ---------------------------
 # Render pages
 # ---------------------------
+st.title("🌍 EinTrust Sustainability Dashboard")
+
 update_energy_from_ghg()
 
 if st.session_state.page=="Home":
-    st.subheader("Home dashboard")
-    render_kpis(calculate_kpis(),"GHG",{"Total Quantity":"#ffffff","Scope 1":"#81c784","Scope 2":"#4db6ac","Scope 3":"#aed581"})
+    render_ghg_dashboard(include_data=False)
     render_energy_dashboard(include_entry=False)
 elif st.session_state.page=="GHG":
-    render_kpis(calculate_kpis(),"GHG",{"Total Quantity":"#ffffff","Scope 1":"#81c784","Scope 2":"#4db6ac","Scope 3":"#aed581"})
-    st.subheader("Add activity data")
-    scope = st.selectbox("Select scope", list(scope_activities.keys()))
-    activity = st.selectbox("Select activity / category", list(scope_activities[scope].keys()))
-    sub_options = scope_activities[scope][activity]
-    if scope!="Scope 3":
-        sub_activity = st.selectbox("Select sub-activity", list(sub_options.keys()))
-        st.info(sub_options[sub_activity])
-    else:
-        sub_activity = st.selectbox("Select sub-category", list(sub_options.keys()))
-    specific_item = None
-    if scope=="Scope 3":
-        items = scope_activities[scope][activity][sub_activity]
-        if items is not None:
-            specific_item = st.selectbox("Select specific item", items)
-    unit = units_dict.get(sub_activity,"Number of flights" if sub_activity=="Air Travel" else "km / kg / tonnes")
-    quantity = st.number_input(f"Enter quantity ({unit})",min_value=0.0,format="%.2f")
-    uploaded_file = st.file_uploader("Upload CSV/XLS/XLSX/PDF for cross verification (optional)", type=["csv","xls","xlsx","pdf"])
-    if st.button("Add entry"):
-        new_entry = {"Scope":scope,"Activity":activity,"Sub-Activity":sub_activity,
-                     "Specific Item":specific_item if specific_item else "",
-                     "Quantity":quantity,"Unit":unit}
-        st.session_state.entries = pd.concat([st.session_state.entries,pd.DataFrame([new_entry])],ignore_index=True)
-        st.success("Entry added successfully!")
-        st.experimental_rerun()
-    if not st.session_state.entries.empty:
-        st.subheader("All entries")
-        display_df = st.session_state.entries.copy()
-        display_df["Quantity"] = display_df["Quantity"].apply(lambda x: format_indian(x))
-        st.dataframe(display_df)
-        csv = display_df.to_csv(index=False).encode('utf-8')
-        st.download_button("Download all entries as CSV",csv,"ghg_entries.csv","text/csv")
+    render_ghg_dashboard(include_data=True)
 elif st.session_state.page=="Energy":
     render_energy_dashboard(include_entry=True)
 else:

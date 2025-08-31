@@ -3,40 +3,30 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime, date
 import io
-import numpy as np
 
 # ---------------------------
-# Config & Dark Theme CSS
+# Page Config & Dark Theme
 # ---------------------------
 st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout="wide")
-
-st.markdown(
-    """
+st.markdown("""
     <style>
-      .stApp { background-color: #0d1117; color: #e6edf3; }
-      .kpi { background: #12131a; padding: 14px; border-radius: 10px; }
-      .kpi-value { font-size: 20px; color: #81c784; font-weight:700; }
-      .kpi-label { font-size: 12px; color: #cfd8dc; }
-      .stDataFrame { color: #e6edf3; }
-      .sidebar .stButton>button { background:#198754; color:white }
+    .stApp { background-color: #0d1117; color: #e6edf3; }
+    .kpi { background: #12131a; padding: 14px; border-radius: 10px; margin-bottom:10px; }
+    .kpi-value { font-size: 20px; color: #81c784; font-weight:700; }
+    .kpi-label { font-size: 12px; color: #cfd8dc; }
+    .stDataFrame { color: #e6edf3; }
+    .sidebar .stButton>button { background:#198754; color:white }
     </style>
-    """,
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
 
 # ---------------------------
-# Sidebar Logo (Direct URL)
+# Sidebar Logo
 # ---------------------------
-st.sidebar.image(
-    "https://raw.githubusercontent.com/eintrusts/eintrust/main/profile_photo.png",
-    width=150
-)
+st.sidebar.image("https://raw.githubusercontent.com/eintrusts/eintrust/main/profile_photo.png", width=150)
 
 # ---------------------------
 # Utilities
 # ---------------------------
-MONTH_ORDER = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"]
-
 def format_indian(n: float) -> str:
     try:
         x = int(round(float(n)))
@@ -65,7 +55,7 @@ def get_cycle_bounds(today: date):
     return start, end
 
 # ---------------------------
-# Load emission factors
+# Load Emission Factors
 # ---------------------------
 try:
     emission_factors = pd.read_csv("emission_factors.csv")
@@ -74,7 +64,7 @@ except FileNotFoundError:
     st.sidebar.warning("emission_factors.csv not found — add it to use prefilled activities.")
 
 # ---------------------------
-# Session state
+# Session State
 # ---------------------------
 if "emissions_log" not in st.session_state:
     st.session_state.emissions_log = []
@@ -166,7 +156,7 @@ if add_mode and not emission_factors.empty:
         st.sidebar.success("Entry added.")
 
 # ---------------------------
-# Main header
+# Main Header
 # ---------------------------
 st.title("🌍 EinTrust GHG Dashboard")
 st.markdown("Estimate Scope 1, 2 and 3 emissions. Apr–Mar cycle. Dark energy-saving theme.")
@@ -198,6 +188,36 @@ if st.session_state.archive_csv:
     )
 
 # ---------------------------
-# KPIs & Charts (same as your latest code)
+# KPIs
 # ---------------------------
-# ... (keep all your KPI, pie chart, trend, forecast, log code unchanged)
+st.subheader("📊 Scope-wise Emissions Summary")
+kpi_cols = st.columns(3)
+for idx, scope in enumerate(["Scope 1","Scope 2","Scope 3"]):
+    kpi_cols[idx].markdown(f'<div class="kpi"><div class="kpi-label">{scope}</div><div class="kpi-value">{format_indian(st.session_state.emissions_summary[scope])} tCO₂e</div></div>', unsafe_allow_html=True)
+
+# ---------------------------
+# Pie Chart
+# ---------------------------
+if st.session_state.emissions_log:
+    df_log = pd.DataFrame(st.session_state.emissions_log)
+    pie_chart = px.pie(df_log, names="Scope", values="Emissions (tCO₂e)", title="Scope-wise Emission Contribution")
+    st.plotly_chart(pie_chart, use_container_width=True)
+
+# ---------------------------
+# Trend Chart
+# ---------------------------
+if st.session_state.emissions_log:
+    df_log["Timestamp"] = pd.to_datetime(df_log["Timestamp"])
+    trend_df = df_log.groupby([pd.Grouper(key="Timestamp", freq="M"),"Scope"])["Emissions (tCO₂e)"].sum().reset_index()
+    trend_chart = px.line(trend_df, x="Timestamp", y="Emissions (tCO₂e)", color="Scope", markers=True, title="Emission Trend Over Time")
+    st.plotly_chart(trend_chart, use_container_width=True)
+
+# ---------------------------
+# Log Table
+# ---------------------------
+st.subheader("📝 Emissions Log")
+if st.session_state.emissions_log:
+    df_log_display = pd.DataFrame(st.session_state.emissions_log)
+    st.dataframe(df_log_display)
+else:
+    st.info("No entries added yet.")

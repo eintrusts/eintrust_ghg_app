@@ -25,6 +25,7 @@ st.markdown("""
 MONTH_ORDER = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"]
 
 def format_indian(n: float) -> str:
+    """Format numbers in Indian numbering style"""
     try:
         x = int(round(float(n)))
     except Exception:
@@ -42,17 +43,8 @@ def format_indian(n: float) -> str:
             res = s + "," + res
     return ("-" if x < 0 else "") + res
 
-def get_cycle_bounds(today: date):
-    if today.month < 4:
-        start = date(today.year - 1, 4, 1)
-        end = date(today.year, 3, 31)
-    else:
-        start = date(today.year, 4, 1)
-        end = date(today.year + 1, 3, 31)
-    return start, end
-
 # ---------------------------
-# Load emission factors
+# Load emission factors (optional)
 # ---------------------------
 try:
     emission_factors = pd.read_csv("emission_factors.csv")
@@ -63,10 +55,8 @@ except FileNotFoundError:
 # ---------------------------
 # Session state
 # ---------------------------
-if "emissions_log" not in st.session_state:
-    st.session_state.emissions_log = []
-if "emissions_summary" not in st.session_state:
-    st.session_state.emissions_summary = {"Scope 1": 0.0, "Scope 2": 0.0, "Scope 3": 0.0}
+if "entries" not in st.session_state:
+    st.session_state.entries = pd.DataFrame(columns=["Scope","Activity","Sub-Activity","Specific Item","Quantity","Unit"])
 if "page" not in st.session_state:
     st.session_state.page = "Home"
 
@@ -77,11 +67,9 @@ with st.sidebar:
     st.image("https://github.com/eintrusts/eintrust_ghg_app/raw/main/EinTrust%20%20logo.png", use_container_width=True)
     st.markdown("---")
     
-    # Home button
     if st.button("Home", key="btn_home"):
         st.session_state.page = "Home"
 
-    # Environment dropdown
     env_exp = st.expander("Environment", expanded=True)
     with env_exp:
         if st.button("GHG", key="btn_ghg"):
@@ -95,7 +83,6 @@ with st.sidebar:
         if st.button("Biodiversity", key="btn_bio"):
             st.session_state.page = "Biodiversity"
 
-    # Social dropdown
     social_exp = st.expander("Social", expanded=False)
     with social_exp:
         if st.button("Employee", key="btn_employee"):
@@ -105,7 +92,6 @@ with st.sidebar:
         if st.button("CSR", key="btn_csr"):
             st.session_state.page = "CSR"
 
-    # Governance dropdown
     gov_exp = st.expander("Governance", expanded=False)
     with gov_exp:
         if st.button("Board", key="btn_board"):
@@ -122,9 +108,6 @@ with st.sidebar:
 # ---------------------------
 st.title("🌍 EinTrust Dashboard")
 
-# ---------------------------
-# GHG Manual Entry Data
-# ---------------------------
 scope_activities = {
     "Scope 1": {"Stationary Combustion": {"Diesel Generator": "Generator running on diesel",
                                           "Petrol Generator": "Generator running on petrol"},
@@ -136,30 +119,35 @@ scope_activities = {
 units_dict = {"Diesel Generator": "Liters", "Petrol Generator": "Liters", "Diesel Vehicle": "Liters",
               "Grid Electricity": "kWh"}
 
-if 'entries' not in st.session_state:
-    st.session_state.entries = pd.DataFrame(columns=["Scope","Activity","Sub-Activity","Specific Item","Quantity","Unit"])
+# ---------------------------
+# Functions
+# ---------------------------
+def calculate_kpis():
+    """Compute Scope totals and overall total"""
+    df = st.session_state.entries
+    summary = {"Scope 1": 0.0, "Scope 2": 0.0, "Scope 3": 0.0, "Total Quantity": 0.0}
+    if not df.empty:
+        for scope in ["Scope 1","Scope 2","Scope 3"]:
+            summary[scope] = df[df["Scope"]==scope]["Quantity"].sum()
+        summary["Total Quantity"] = df["Quantity"].sum()
+    return summary
 
 def render_ghg_dashboard(include_data=True):
     st.subheader("🌱 GHG Emissions Dashboard")
-    st.markdown("Estimate Scope 1, 2, and 3 emissions for net zero journey.")
-
-    # KPIs
-    s1 = st.session_state.emissions_summary.get("Scope 1", 0.0)
-    s2 = st.session_state.emissions_summary.get("Scope 2", 0.0)
-    s3 = st.session_state.emissions_summary.get("Scope 3", 0.0)
-    total = s1 + s2 + s3
-
+    
+    # Update KPIs
+    kpis = calculate_kpis()
     SCOPE_COLORS = {"Scope 1": "#81c784", "Scope 2": "#4db6ac", "Scope 3": "#aed581"}
 
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
     with c1:
-        st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:white'>{format_indian(total)}</div><div class='kpi-label'>Total Emissions (tCO₂e)</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:white'>{format_indian(kpis['Total Quantity'])}</div><div class='kpi-label'>Total Quantity</div></div>", unsafe_allow_html=True)
     with c2:
-        st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 1']}'>{format_indian(s1)}</div><div class='kpi-label'>Scope 1 (tCO₂e)</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 1']}'>{format_indian(kpis['Scope 1'])}</div><div class='kpi-label'>Scope 1</div></div>", unsafe_allow_html=True)
     with c3:
-        st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 2']}'>{format_indian(s2)}</div><div class='kpi-label'>Scope 2 (tCO₂e)</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 2']}'>{format_indian(kpis['Scope 2'])}</div><div class='kpi-label'>Scope 2</div></div>", unsafe_allow_html=True)
     with c4:
-        st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 3']}'>{format_indian(s3)}</div><div class='kpi-label'>Scope 3 (tCO₂e)</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 3']}'>{format_indian(kpis['Scope 3'])}</div><div class='kpi-label'>Scope 3</div></div>", unsafe_allow_html=True)
 
     if include_data:
         st.subheader("Add Activity Data")
@@ -181,22 +169,22 @@ def render_ghg_dashboard(include_data=True):
             if items is not None:
                 specific_item = st.selectbox("Select Specific Item", items)
 
-        unit = None
+        # Determine unit
         if scope != "Scope 3":
             unit = units_dict.get(sub_activity, "")
         else:
-            if sub_activity in ["Air Travel"]:
+            if sub_activity == "Air Travel":
                 unit = "Number of flights"
             else:
                 unit = "km / kg / Tonnes"
 
         quantity = st.number_input(f"Enter Quantity ({unit})", min_value=0.0, format="%.2f")
 
-        # File upload for cross-verification
-        st.subheader("Optional: Upload File")
+        # File upload for cross-verification only
+        st.subheader("Optional: Upload File for Internal Verification")
         uploaded_file = st.file_uploader("Upload CSV/XLS/XLSX/PDF", type=["csv","xls","xlsx","pdf"])
 
-        # Add Manual Entry
+        # Add manual entry
         if st.button("Add Entry"):
             new_entry = {
                 "Scope": scope,
@@ -208,18 +196,16 @@ def render_ghg_dashboard(include_data=True):
             }
             st.session_state.entries = pd.concat([st.session_state.entries, pd.DataFrame([new_entry])], ignore_index=True)
             st.success("Entry added successfully!")
+            st.experimental_rerun()  # Refresh dashboard KPIs immediately
 
-        # Display Entries
+        # Display Entries table
         if not st.session_state.entries.empty:
             st.subheader("All Entries")
             display_df = st.session_state.entries.copy()
-            display_df["Quantity"] = display_df["Quantity"].apply(lambda x: f"{x:,.2f}")
+            display_df["Quantity"] = display_df["Quantity"].apply(lambda x: format_indian(x))
             st.dataframe(display_df)
 
-            # Download CSV
-            def convert_df(df):
-                return df.to_csv(index=False).encode('utf-8')
-            csv = convert_df(st.session_state.entries)
+            csv = display_df.to_csv(index=False).encode('utf-8')
             st.download_button("Download All Entries as CSV", csv, "ghg_entries.csv", "text/csv")
 
 # ---------------------------

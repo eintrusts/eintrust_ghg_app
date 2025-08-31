@@ -9,13 +9,6 @@ from office365.sharepoint.client_context import ClientContext
 # --- Page Config ---
 st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout="wide")
 
-# --- Load Emission Factors (internal use only) ---
-try:
-    emission_factors = pd.read_csv("emission_factors.csv")
-except FileNotFoundError:
-    st.error("emission_factors.csv not found. Please place it in the same folder as this app.")
-    emission_factors = pd.DataFrame(columns=["scope","category","activity","unit","emission_factor"])
-
 # --- Session State ---
 if "user_logged_in" not in st.session_state:
     st.session_state.user_logged_in = False
@@ -33,15 +26,29 @@ SHAREPOINT_URL = "https://eintrusts.sharepoint.com/sites/EinTrust"
 USERNAME = "your_service_account@eintrusts.com"
 PASSWORD = "your_password"
 TARGET_FOLDER = "/sites/EinTrust/Shared Documents/ClientData"
+CREDENTIALS_FILE = "client_credentials.csv"  # Stored on SharePoint
 ctx = ClientContext(SHAREPOINT_URL).with_credentials(UserCredential(USERNAME, PASSWORD))
 
-# --- Manual User Database ---
-# Example: company_name -> [list of usernames]
-USER_DB = {
-    "Demo Company": ["admin", "finance", "operations"],
-    "Test Company": ["user1", "user2"],
-    "GreenTech": ["gt_admin", "gt_user"]
-}
+# --- Load Client Credentials from SharePoint ---
+def load_client_credentials():
+    try:
+        file = ctx.web.get_file_by_server_relative_url(f"{TARGET_FOLDER}/{CREDENTIALS_FILE}")
+        file_content = file.download().execute_query()
+        csv_buffer = io.BytesIO(file_content.content)
+        df = pd.read_csv(csv_buffer)
+        return df
+    except:
+        st.error("Failed to load client credentials from SharePoint.")
+        return pd.DataFrame(columns=["Company Name","Username"])
+
+credentials_df = load_client_credentials()
+
+# --- Load Emission Factors (internal use only) ---
+try:
+    emission_factors = pd.read_csv("emission_factors.csv")
+except FileNotFoundError:
+    st.error("emission_factors.csv not found. Please place it in the same folder as this app.")
+    emission_factors = pd.DataFrame(columns=["scope","category","activity","unit","emission_factor"])
 
 # --- Logout ---
 def logout():
@@ -53,19 +60,25 @@ def logout():
 # --- Login Page ---
 def login_page():
     st.title("EinTrust Login")
-    company_name = st.selectbox("Company Name", options=list(USER_DB.keys()))
-    username = st.selectbox("Username", options=USER_DB.get(company_name, []))
+    company_name = st.text_input("Company Name")
+    username = st.text_input("Username")
     if st.button("Login"):
-        # No password needed in this version
-        st.session_state.user_logged_in = True
-        st.session_state.user_profile = {
-            "company_name": company_name,
-            "username": username,
-            "responsible_person_name": "",
-            "responsible_person_contact": ""
-        }
-        st.session_state.page = "dashboard"
-        st.experimental_rerun()
+        match = credentials_df[
+            (credentials_df["Company Name"]==company_name) &
+            (credentials_df["Username"]==username)
+        ]
+        if not match.empty:
+            st.session_state.user_logged_in = True
+            st.session_state.user_profile = {
+                "company_name": company_name,
+                "username": username,
+                "responsible_person_name": "",
+                "responsible_person_contact": ""
+            }
+            st.session_state.page = "dashboard"
+            st.experimental_rerun()
+        else:
+            st.error("Invalid login credentials.")
 
 # --- Profile Page ---
 def profile_page():
@@ -85,7 +98,7 @@ def dashboard_page():
     st.title("Einboard")
     st.markdown(f"Welcome **{st.session_state.user_profile['username']}** from **{st.session_state.user_profile['company_name']}**!")
 
-    # Sidebar - Add Activity
+    # --- Sidebar Top: Add Activity ---
     st.sidebar.header("Add Activity Data")
     scope_options = emission_factors["scope"].dropna().unique()
     selected_scope = st.sidebar.selectbox("Select Scope", scope_options)
@@ -129,7 +142,14 @@ def dashboard_page():
             summary[e["Scope"]] += e["Emissions (tCO₂e)"]
         st.session_state.emissions_summary = summary
 
-    # Dashboard Columns
+    # --- Sidebar Bottom: Profile & Logout ---
+    st.sidebar.markdown("---")
+    if st.sidebar.button("Profile"):
+        st.session_state.page = "profile"
+    if st.sidebar.button("Logout"):
+        logout()
+
+    # --- Dashboard Columns ---
     col1, col2 = st.columns([1,2])
     with col1:
         st.subheader("📅 Latest Emission Entry")
@@ -148,7 +168,7 @@ def dashboard_page():
             fig = px.pie(chart_df, names="Scope", values="Emissions", color_discrete_sequence=px.colors.sequential.Purples_r, hole=0.45)
             st.plotly_chart(fig, use_container_width=True)
 
-    # Emissions Log & SharePoint Save
+    # --- Emissions Log & SharePoint Save ---
     if st.session_state.emissions_log:
         st.subheader("📂 Emissions Log")
         log_df = pd.DataFrame(st.session_state.emissions_log)
@@ -165,6 +185,7 @@ def dashboard_page():
         }])
         final_df = pd.concat([log_df,total_row], ignore_index=True)
         st.dataframe(final_df, use_container_width=True)
+
         # Save to SharePoint
         try:
             csv_buffer = io.StringIO()
@@ -173,14 +194,6 @@ def dashboard_page():
             ctx.web.get_folder_by_server_relative_url(TARGET_FOLDER).upload_file(csv_name, csv_buffer.getvalue().encode()).execute_query()
         except:
             st.error("Failed to save to SharePoint")
-
-# --- Sidebar Bottom ---
-if st.session_state.user_logged_in:
-    st.sidebar.markdown("---")
-    if st.sidebar.button("Profile"):
-        st.session_state.page = "profile"
-    if st.sidebar.button("Logout"):
-        logout()
 
 # --- Page Routing ---
 if not st.session_state.user_logged_in:

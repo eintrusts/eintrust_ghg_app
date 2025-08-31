@@ -161,7 +161,7 @@ def calculate_kpis():
     return summary
 
 def render_ghg_dashboard(include_data=True):
-    st.subheader("GHG emissions dashboard")
+    st.subheader("GHG Emissions Dashboard")
     kpis = calculate_kpis()
     SCOPE_COLORS = {"Scope 1": "#81c784", "Scope 2": "#4db6ac", "Scope 3": "#aed581"}
     c1, c2, c3, c4 = st.columns(4)
@@ -180,7 +180,7 @@ def render_ghg_dashboard(include_data=True):
         """, unsafe_allow_html=True)
 
     if include_data:
-        st.subheader("Add activity data")
+        st.subheader("Add Activity Data")
         scope = st.selectbox("Select scope", list(scope_activities.keys()))
         activity = st.selectbox("Select activity / category", list(scope_activities[scope].keys()))
         sub_options = scope_activities[scope][activity]
@@ -215,7 +215,7 @@ def render_ghg_dashboard(include_data=True):
             st.experimental_rerun()
 
         if not st.session_state.entries.empty:
-            st.subheader("All entries")
+            st.subheader("All Entries")
             display_df = st.session_state.entries.copy()
             display_df["Quantity"] = display_df["Quantity"].apply(lambda x: format_indian(x))
             st.dataframe(display_df)
@@ -226,7 +226,7 @@ def render_ghg_dashboard(include_data=True):
 # Energy & CO2e Dashboard
 # ---------------------------
 def render_energy_dashboard():
-    st.title("⚡ Energy & CO₂e Dashboard (Financial Year Apr→Mar)")
+    st.subheader("⚡ Energy & CO₂e Dashboard (Financial Year Apr→Mar)")
     
     # Constants
     calorific_values = {"Diesel": 35.8,"Petrol": 34.2,"LPG":46.1,"CNG":48,"Coal":24,"Biomass":15}
@@ -315,7 +315,9 @@ def render_energy_dashboard():
 # ---------------------------
 if st.session_state.page == "Home":
     st.title("🌍 Welcome to EinTrust Dashboard")
-    st.info("Select GHG or Energy from sidebar to view dashboards.")
+    st.info("Below are the GHG and Energy dashboards. You can also navigate from the sidebar to view individual dashboards.")
+    render_ghg_dashboard(include_data=True)
+    render_energy_dashboard()
 elif st.session_state.page == "GHG":
     render_ghg_dashboard(include_data=True)
 elif st.session_state.page == "Energy":

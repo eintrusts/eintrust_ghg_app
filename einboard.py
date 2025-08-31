@@ -124,7 +124,7 @@ def calculate_kpis():
     return summary
 
 def render_ghg_dashboard(include_data=True, show_chart=True):
-    st.subheader("GHG Emissions Dashboard")
+    st.subheader("GHG Emissions")
     kpis = calculate_kpis()
     c1, c2, c3, c4 = st.columns(4)
     for col, label, value, color in zip(
@@ -174,7 +174,7 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
         quantity = st.number_input(f"Enter quantity ({unit})", min_value=0.0, format="%.2f")
         uploaded_file = st.file_uploader("Upload CSV/XLS/XLSX/PDF for cross verification (optional)", type=["csv","xls","xlsx","pdf"])
 
-        if st.button("Add GHG Entry"):
+        if st.button("Add Entry"):
             new_entry = {
                 "Scope": scope,
                 "Activity": activity,
@@ -199,7 +199,7 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
 # Energy Dashboard
 # ---------------------------
 def render_energy_dashboard(include_input=True, show_chart=True):
-    st.subheader("⚡ Energy & CO₂e Dashboard (Apr→Mar)")
+    st.subheader("Energy")
     df = st.session_state.entries
     calorific_values = {"Diesel": 35.8,"Petrol": 34.2,"LPG":46.1,"CNG":48,"Coal":24,"Biomass":15}
     emission_factors = {"Diesel":2.68,"Petrol":2.31,"LPG":1.51,"CNG":2.02,"Coal":2.42,"Biomass":0.0,
@@ -274,8 +274,8 @@ def render_energy_dashboard(include_input=True, show_chart=True):
 # Render Pages
 # ---------------------------
 if st.session_state.page == "Home":
-    st.title("🌍 Welcome to EinTrust Dashboard")
-    st.info("GHG & Energy KPIs only. Select pages from sidebar for details.")
+    st.title("EinTrust Sustainability Dashboard")
+    
     render_ghg_dashboard(include_data=False, show_chart=False)
     render_energy_dashboard(include_input=False, show_chart=False)
 elif st.session_state.page == "GHG":

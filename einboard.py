@@ -102,7 +102,7 @@ if today.month == 4 and today.day == 1:
 # ---------------------------
 # Sidebar — Add Activity Data
 # ---------------------------
-st.sidebar.header("➕ Add Activity Data")
+st.sidebar.header("Add Activity Data")
 add_mode = st.sidebar.checkbox("Add Entry Mode", value=False)
 
 selected_scope = None
@@ -187,7 +187,7 @@ if add_mode and emission_factors.empty:
 # Main dashboard
 # ---------------------------
 st.title("🌍 EinTrust GHG Dashboard")
-st.markdown("Estimate Scope 1, 2 and 3 emissions. Apr–Mar cycle. Dark energy-saving theme.")
+st.markdown("Estimate Scope 1, 2 and 3 emissions for net zero journey.")
 
 # ---------------------------
 # Manual Archive & Reset
@@ -218,7 +218,7 @@ if st.session_state.archive_csv:
 # ---------------------------
 # KPIs & Pie & Trend
 # ---------------------------
-st.subheader("📊 Key Emission Indicators")
+st.subheader("📊 GHG Emissions")
 s1 = st.session_state.emissions_summary.get("Scope 1", 0.0)
 s2 = st.session_state.emissions_summary.get("Scope 2", 0.0)
 s3 = st.session_state.emissions_summary.get("Scope 3", 0.0)
@@ -247,7 +247,7 @@ if not df_log.empty:
 else:
     st.info("No data to show in breakdown. Add entries from sidebar.")
 
-st.subheader("📈 Emissions Trend Over Time (Monthly — Apr→Mar)")
+st.subheader("📈 Emissions Trend Over Time (Monthly)")
 if not df_log.empty:
     df_log["Timestamp"] = pd.to_datetime(df_log["Timestamp"], errors="coerce")
     df_log = df_log.dropna(subset=["Timestamp"])

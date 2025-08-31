@@ -11,10 +11,7 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
 
-html, body, [class*="css"] {
-    font-family: 'Roboto', sans-serif;
-}
-
+html, body, [class*="css"] { font-family: 'Roboto', sans-serif; }
 .stApp { background-color: #0d1117; color: #e6edf3; }
 
 /* KPI boxes */
@@ -36,23 +33,9 @@ html, body, [class*="css"] {
     transform: scale(1.05);
     box-shadow: 0 8px 20px rgba(0,0,0,0.6);
 }
-.kpi-value {
-    font-size: 28px;
-    font-weight: 700;
-    color: #ffffff;
-    margin-bottom: 5px;
-}
-.kpi-unit {
-    font-size: 16px;
-    font-weight: 500;
-    color: #cfd8dc;
-    margin-bottom: 5px;
-}
-.kpi-label {
-    font-size: 14px;
-    color: #cfd8dc;
-    letter-spacing: 0.5px;
-}
+.kpi-value { font-size: 28px; font-weight: 700; color: #ffffff; margin-bottom: 5px; }
+.kpi-unit { font-size: 16px; font-weight: 500; color: #cfd8dc; margin-bottom: 5px; }
+.kpi-label { font-size: 14px; color: #cfd8dc; letter-spacing: 0.5px; }
 
 /* Dataframe styling */
 .stDataFrame { color: #e6edf3; font-family: 'Roboto', sans-serif; }
@@ -90,41 +73,28 @@ with st.sidebar:
     st.image("https://github.com/eintrusts/eintrust_ghg_app/raw/main/EinTrust%20%20logo.png", use_container_width=True)
     st.markdown("---")
     
-    if st.button("Home"):
-        st.session_state.page = "Home"
+    if st.button("Home"): st.session_state.page = "Home"
 
     env_exp = st.expander("Environment", expanded=True)
     with env_exp:
-        if st.button("GHG"):
-            st.session_state.page = "GHG"
-        if st.button("Energy"):
-            st.session_state.page = "Energy"
-        if st.button("Water"):
-            st.session_state.page = "Water"
-        if st.button("Waste"):
-            st.session_state.page = "Waste"
-        if st.button("Biodiversity"):
-            st.session_state.page = "Biodiversity"
+        if st.button("GHG"): st.session_state.page = "GHG"
+        if st.button("Energy"): st.session_state.page = "Energy"
+        if st.button("Water"): st.session_state.page = "Water"
+        if st.button("Waste"): st.session_state.page = "Waste"
+        if st.button("Biodiversity"): st.session_state.page = "Biodiversity"
 
     social_exp = st.expander("Social", expanded=False)
     with social_exp:
-        if st.button("Employee"):
-            st.session_state.page = "Employee"
-        if st.button("Health & Safety"):
-            st.session_state.page = "Health & Safety"
-        if st.button("CSR"):
-            st.session_state.page = "CSR"
+        if st.button("Employee"): st.session_state.page = "Employee"
+        if st.button("Health & Safety"): st.session_state.page = "Health & Safety"
+        if st.button("CSR"): st.session_state.page = "CSR"
 
     gov_exp = st.expander("Governance", expanded=False)
     with gov_exp:
-        if st.button("Board"):
-            st.session_state.page = "Board"
-        if st.button("Policies"):
-            st.session_state.page = "Policies"
-        if st.button("Compliance"):
-            st.session_state.page = "Compliance"
-        if st.button("Risk Management"):
-            st.session_state.page = "Risk Management"
+        if st.button("Board"): st.session_state.page = "Board"
+        if st.button("Policies"): st.session_state.page = "Policies"
+        if st.button("Compliance"): st.session_state.page = "Compliance"
+        if st.button("Risk Management"): st.session_state.page = "Risk Management"
 
 # ---------------------------
 # Initialize Data
@@ -175,7 +145,6 @@ def render_ghg_dashboard(include_data=True):
         """, unsafe_allow_html=True)
 
     if include_data:
-        # Original data-entry forms
         scope = st.selectbox("Select scope", list(scope_activities.keys()))
         activity = st.selectbox("Select activity / category", list(scope_activities[scope].keys()))
         sub_options = scope_activities[scope][activity]
@@ -227,7 +196,9 @@ def render_energy_dashboard(include_input=True):
     emission_factors = {"Diesel":2.68,"Petrol":2.31,"LPG":1.51,"CNG":2.02,"Coal":2.42,"Biomass":0.0,
                         "Electricity":0.82,"Solar":0.0,"Wind":0.0,"Purchased Green Energy":0.0,"Biogas":0.0}
     months = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"]
+    COLOR_PALETTE = {"Fossil": "#f39c12", "Renewable": "#2ecc71"}  # unified color palette
 
+    # Scope 1 & 2 data
     if not st.session_state.entries.empty:
         df = st.session_state.entries.copy()
         scope1_2_data = df[df["Scope"].isin(["Scope 1","Scope 2"])].copy()
@@ -246,10 +217,49 @@ def render_energy_dashboard(include_input=True):
     else:
         scope1_2_data = pd.DataFrame(columns=["Type","Energy_kWh","CO2e_kg","Month"])
 
-    # Optional: Add renewable energy entries
+    # Renewable data frame placeholder
     renewable_df = pd.DataFrame()
+
+    # KPI calculation
+    all_energy = pd.concat([scope1_2_data.rename(columns={"Sub-Activity":"Fuel"}), renewable_df], ignore_index=True)
+    total_energy = all_energy.groupby("Type")["Energy_kWh"].sum().to_dict() if not all_energy.empty else {}
+    total_co2e = all_energy.groupby("Type")["CO2e_kg"].sum().to_dict() if not all_energy.empty else {}
+    fossil_energy = total_energy.get("Fossil",0)
+    renewable_energy = total_energy.get("Renewable",0)
+    fossil_co2e = total_co2e.get("Fossil",0)
+    renewable_co2e = total_co2e.get("Renewable",0)
+
+    # KPI Cards
+    c1, c2, c3 = st.columns(3)
+    for col, label, value, delta, key in zip(
+        [c1,c2,c3],
+        ["Fossil Energy (kWh)","Renewable Energy (kWh)","Total Energy (kWh)"],
+        [fossil_energy, renewable_energy, fossil_energy+renewable_energy],
+        [f"{fossil_co2e:,.0f} kg CO₂e", f"{renewable_co2e:,.0f} kg CO₂e", f"{fossil_co2e+renewable_co2e:,.0f} kg CO₂e"],
+        ["fossil","renewable","total"]
+    ):
+        color = COLOR_PALETTE.get(label.split()[0], "#ffffff")
+        col.markdown(f"""
+        <div class='kpi'>
+            <div class='kpi-value' style='color:{color}'>{value:,.0f}</div>
+            <div class='kpi-unit'>kWh</div>
+            <div class='kpi-label'>{label.lower()}</div>
+            <div style='color:#cfd8dc;font-size:14px;margin-top:5px;'>{delta}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Monthly trend chart
+    if not all_energy.empty:
+        all_energy["Month"] = pd.Categorical(all_energy.get("Month", months[0]), categories=months, ordered=True)
+        monthly_trend = all_energy.groupby(["Month","Type"]).sum().reset_index()
+        st.subheader("Monthly Energy Consumption (kWh)")
+        fig1 = px.line(monthly_trend, x="Month", y="Energy_kWh", color="Type",
+                       color_discrete_map=COLOR_PALETTE, markers=True)
+        st.plotly_chart(fig1, use_container_width=True)
+
+    # Renewable Energy Entry Form (below dashboard)
     if include_input:
-        st.subheader("Add Renewable Energy (Annual) per Location & Source")
+        st.subheader("Add Renewable Energy Entry")
         num_entries = st.number_input("Number of renewable energy entries to add", min_value=1, max_value=20, value=1)
         renewable_list = []
         for i in range(int(num_entries)):
@@ -265,66 +275,7 @@ def render_energy_dashboard(include_input=True):
                 renewable_list.append({"Source": source,"Location": location,"Month": m,
                                        "Energy_kWh": monthly_energy,"Type":"Renewable",
                                        "CO2e_kg": monthly_energy*emission_factors.get(source,0)})
-        renewable_df = pd.DataFrame(renewable_list)
-
-    # Combine all energy
-    all_energy = pd.concat([scope1_2_data.rename(columns={"Sub-Activity":"Fuel"}), renewable_df], ignore_index=True)
-    if not all_energy.empty:
-        all_energy["Month"] = pd.Categorical(all_energy["Month"], categories=months, ordered=True)
-    
-    # KPI Cards
-    total_energy = all_energy.groupby("Type")["Energy_kWh"].sum().to_dict() if not all_energy.empty else {}
-    total_co2e = all_energy.groupby("Type")["CO2e_kg"].sum().to_dict() if not all_energy.empty else {}
-    fossil_energy = total_energy.get("Fossil",0)
-    renewable_energy = total_energy.get("Renewable",0)
-    fossil_co2e = total_co2e.get("Fossil",0)
-    renewable_co2e = total_co2e.get("Renewable",0)
-    
-    c1, c2, c3 = st.columns(3)
-    for col, label, value, delta in zip(
-        [c1,c2,c3],
-        ["Fossil Energy (kWh)","Renewable Energy (kWh)","Total Energy (kWh)"],
-        [fossil_energy, renewable_energy, fossil_energy+renewable_energy],
-        [f"{fossil_co2e:,.0f} kg CO₂e", f"{renewable_co2e:,.0f} kg CO₂e", f"{fossil_co2e+renewable_co2e:,.0f} kg CO₂e"]
-    ):
-        col.markdown(f"""
-        <div class='kpi'>
-            <div class='kpi-value'>{value:,.0f}</div>
-            <div class='kpi-unit'>kWh</div>
-            <div class='kpi-label'>{label.lower()}</div>
-            <div style='color:#cfd8dc;font-size:14px;margin-top:5px;'>{delta}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    # Monthly trends
-    if not all_energy.empty:
-        monthly_trend = all_energy.groupby(["Month","Type"]).sum().reset_index()
-        st.subheader("Monthly Energy Consumption (kWh)")
-        fig1 = px.line(monthly_trend, x="Month", y="Energy_kWh", color="Type", markers=True)
-        st.plotly_chart(fig1, use_container_width=True)
-        
-        st.subheader("Monthly CO₂e Emissions (kg)")
-        fig2 = px.line(monthly_trend, x="Month", y="CO2e_kg", color="Type", markers=True)
-        st.plotly_chart(fig2, use_container_width=True)
-
-# ---------------------------
-# Home Page Results (No Input)
-# ---------------------------
-def render_home_results():
-    st.info("Below are the latest GHG and Energy results.")
-    render_ghg_dashboard(include_data=False)
-    render_energy_dashboard(include_input=False)
-
-# ---------------------------
-# Render Pages
-# ---------------------------
-if st.session_state.page == "Home":
-    st.title("🌍 Welcome to EinTrust Dashboard")
-    render_home_results()
-elif st.session_state.page == "GHG":
-    render_ghg_dashboard(include_data=True)
-elif st.session_state.page == "Energy":
-    render_energy_dashboard(include_input=True)
-else:
-    st.subheader(f"{st.session_state.page} section")
-    st.info("This section is under development. Please select other pages from sidebar.")
+        if renewable_list:
+            renewable_df = pd.DataFrame(renewable_list)
+            if st.button("Add Renewable Energy Entries"):
+                st.success(f"{len(renewable_df)} renewable energy entries added (not yet saved permanently).")

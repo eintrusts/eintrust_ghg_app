@@ -122,10 +122,7 @@ with st.sidebar:
 # ---------------------------
 st.title("🌍 EinTrust Dashboard")
 
-def render_ghg_dashboard(include_data=True):
-    st.subheader("🌱 GHG Emissions Dashboard")
-    st.markdown("Estimate Scope 1, 2, and 3 emissions for net zero journey.")
-
+def render_dashboard(include_activity=True):
     # KPIs
     s1 = st.session_state.emissions_summary.get("Scope 1", 0.0)
     s2 = st.session_state.emissions_summary.get("Scope 2", 0.0)
@@ -144,55 +141,56 @@ def render_ghg_dashboard(include_data=True):
     with c4:
         st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 3']}'>{format_indian(s3)}</div><div class='kpi-label'>Scope 3 (tCO₂e)</div></div>", unsafe_allow_html=True)
 
-    # Pie Chart
-    st.subheader("📊 Emission Breakdown by Scope")
-    df_log = pd.DataFrame(st.session_state.emissions_log)
-    if not df_log.empty:
-        pie_df = df_log.groupby("Scope", sort=False)["Emissions (tCO₂e)"].sum().reindex(["Scope 1", "Scope 2", "Scope 3"]).fillna(0).reset_index()
-        fig_pie = px.pie(
-            pie_df,
-            names="Scope",
-            values="Emissions (tCO₂e)",
-            hole=0.45,
-            color="Scope",
-            color_discrete_map=SCOPE_COLORS,
-            template="plotly_dark"
-        )
-        fig_pie.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3")
-        st.plotly_chart(fig_pie, use_container_width=True)
-    else:
-        st.info("No emission data available for the pie chart.")
-
-    # Monthly Trend
-    st.subheader("📈 Emissions Trend Over Time (Monthly)")
-    if not df_log.empty:
-        df_log["Timestamp"] = pd.to_datetime(df_log["Timestamp"], errors="coerce")
-        df_log = df_log.dropna(subset=["Timestamp"])
-        cycle_start, cycle_end = get_cycle_bounds(date.today())
-        df_cycle = df_log[(df_log["Timestamp"].dt.date >= cycle_start) & (df_log["Timestamp"].dt.date <= cycle_end)].copy()
-        if df_cycle.empty:
-            st.info("No entries in the current Apr–Mar cycle yet.")
-        else:
-            df_cycle["MonthLabel"] = pd.Categorical(df_cycle["Timestamp"].dt.strftime("%b"), categories=MONTH_ORDER, ordered=True)
-            stacked = df_cycle.groupby(["MonthLabel", "Scope"])["Emissions (tCO₂e)"].sum().reset_index()
-            pivot = stacked.pivot(index="MonthLabel", columns="Scope", values="Emissions (tCO₂e)").reindex(MONTH_ORDER).fillna(0)
-            pivot = pivot.reset_index()
-            melt = pivot.melt(id_vars=["MonthLabel"], var_name="Scope", value_name="Emissions (tCO₂e)")
-
-            fig_bar = px.bar(
-                melt,
-                x="MonthLabel",
-                y="Emissions (tCO₂e)",
+    # Only Home shows Pie and Trend charts
+    if not include_activity:
+        # Pie Chart
+        st.subheader("📊 Emission Breakdown by Scope")
+        df_log = pd.DataFrame(st.session_state.emissions_log)
+        if not df_log.empty:
+            pie_df = df_log.groupby("Scope", sort=False)["Emissions (tCO₂e)"].sum().reindex(["Scope 1", "Scope 2", "Scope 3"]).fillna(0).reset_index()
+            fig_pie = px.pie(
+                pie_df,
+                names="Scope",
+                values="Emissions (tCO₂e)",
+                hole=0.45,
                 color="Scope",
                 color_discrete_map=SCOPE_COLORS,
-                barmode="stack",
                 template="plotly_dark"
             )
-            fig_bar.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3", xaxis_title="", yaxis_title="Emissions (tCO₂e)")
-            st.plotly_chart(fig_bar, use_container_width=True)
+            fig_pie.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3")
+            st.plotly_chart(fig_pie, use_container_width=True)
+        else:
+            st.info("No emission data available for the pie chart.")
 
-    # Add Activity Data & Log (only on GHG page)
-    if include_data:
+        # Monthly Trend
+        st.subheader("📈 Emissions Trend Over Time (Monthly)")
+        if not df_log.empty:
+            df_log["Timestamp"] = pd.to_datetime(df_log["Timestamp"], errors="coerce")
+            df_log = df_log.dropna(subset=["Timestamp"])
+            cycle_start, cycle_end = get_cycle_bounds(date.today())
+            df_cycle = df_log[(df_log["Timestamp"].dt.date >= cycle_start) & (df_log["Timestamp"].dt.date <= cycle_end)].copy()
+            if not df_cycle.empty:
+                df_cycle["MonthLabel"] = pd.Categorical(df_cycle["Timestamp"].dt.strftime("%b"), categories=MONTH_ORDER, ordered=True)
+                stacked = df_cycle.groupby(["MonthLabel", "Scope"])["Emissions (tCO₂e)"].sum().reset_index()
+                pivot = stacked.pivot(index="MonthLabel", columns="Scope", values="Emissions (tCO₂e)").reindex(MONTH_ORDER).fillna(0)
+                pivot = pivot.reset_index()
+                melt = pivot.melt(id_vars=["MonthLabel"], var_name="Scope", value_name="Emissions (tCO₂e)")
+                fig_bar = px.bar(
+                    melt,
+                    x="MonthLabel",
+                    y="Emissions (tCO₂e)",
+                    color="Scope",
+                    color_discrete_map=SCOPE_COLORS,
+                    barmode="stack",
+                    template="plotly_dark"
+                )
+                fig_bar.update_layout(paper_bgcolor="#0d1117", font_color="#e6edf3", xaxis_title="", yaxis_title="Emissions (tCO₂e)")
+                st.plotly_chart(fig_bar, use_container_width=True)
+            else:
+                st.info("No entries in the current Apr–Mar cycle yet.")
+
+    # Add Activity Data & Log (only for pages with include_activity=True)
+    if include_activity:
         st.subheader("➕ Add Activity Data")
         if not emission_factors.empty:
             scope_options = emission_factors["scope"].dropna().unique()
@@ -241,7 +239,6 @@ def render_ghg_dashboard(include_data=True):
                 st.session_state.emissions_summary = summary
                 st.success("Entry added.")
 
-        # Emissions Log
         st.subheader("📜 Emissions Log")
         if st.session_state.emissions_log:
             log_df = pd.DataFrame(st.session_state.emissions_log).sort_values("Timestamp", ascending=False).reset_index(drop=True)
@@ -254,9 +251,11 @@ def render_ghg_dashboard(include_data=True):
 # Render pages
 # ---------------------------
 if st.session_state.page == "Home":
-    render_ghg_dashboard(include_data=False)   # Home shows only charts and KPIs
+    render_dashboard(include_activity=False)   # Home: only charts + KPIs
 elif st.session_state.page == "GHG":
-    render_ghg_dashboard(include_data=True)    # GHG page shows full dashboard with Add Activity
+    render_dashboard(include_activity=True)    # GHG: full dashboard
 else:
+    # For Social & Governance pages: empty dashboard ready for future expansion
     st.subheader(f"{st.session_state.page} Section")
-    st.info("This section is under development. Please select other pages from sidebar.")
+    render_dashboard(include_activity=False)
+    st.info("This section is under development. You can expand functionality in the future.")

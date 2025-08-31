@@ -6,13 +6,14 @@ from datetime import datetime
 # --- Page Config ---
 st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout="wide")
 
-# --- Custom CSS ---
+# --- Custom CSS (Dark Energy-Saving Theme) ---
 st.markdown(
     """
     <style>
-    .stApp {background: linear-gradient(120deg, #e8f5e9, #f1f8e9);} 
-    .big-font {font-size:20px !important; font-weight:bold; color:#2e7d32;}
-    .kpi-card {background:#ffffff; padding:15px; border-radius:15px; box-shadow:0px 2px 8px rgba(0,0,0,0.1);} 
+    .stApp {background: #121212; color: #e0f2f1;}
+    .big-font {font-size:20px !important; font-weight:bold; color:#80cbc4;}
+    .kpi-card {background:#1e1e1e; padding:15px; border-radius:15px; box-shadow:0px 2px 8px rgba(0,0,0,0.6);} 
+    .stMarkdown, .stDataFrame {color: #e0f2f1;}
     </style>
     """,
     unsafe_allow_html=True
@@ -114,7 +115,8 @@ with col2:
 
     if not chart_df.empty:
         fig = px.pie(chart_df, names="Scope", values="Emissions",
-                     color_discrete_sequence=px.colors.sequential.Greens_r, hole=0.45)
+                     color_discrete_sequence=px.colors.sequential.Teal_r, hole=0.45)
+        fig.update_layout(paper_bgcolor="#121212", font_color="#e0f2f1")
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No data to show chart.")
@@ -152,5 +154,16 @@ if st.session_state.emissions_log:
 
         # Download option
         st.download_button("📥 Download Log as CSV", data=final_df.to_csv(index=False), file_name="emissions_log.csv", mime="text/csv")
+
+        # Trend Chart
+        if len(log_df) > 1:
+            st.subheader("📈 Emissions Trend Over Time")
+            trend_df = log_df.copy()
+            trend_df["Timestamp"] = pd.to_datetime(trend_df["Timestamp"], errors="coerce")
+            trend_df = trend_df.dropna(subset=["Timestamp"])
+            fig2 = px.line(trend_df, x="Timestamp", y="Emissions (tCO₂e)", color="Scope", markers=True,
+                          color_discrete_sequence=px.colors.sequential.Teal_r)
+            fig2.update_layout(paper_bgcolor="#121212", font_color="#e0f2f1")
+            st.plotly_chart(fig2, use_container_width=True)
 else:
     st.info("No emission log data yet.")

@@ -10,34 +10,21 @@ st.set_page_config(page_title="EinTrust Sustainability Dashboard", page_icon="�
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
-
 html, body, [class*="css"] { font-family: 'Roboto', sans-serif; }
 .stApp { background-color: #0d1117; color: #e6edf3; }
 
-/* KPI boxes */
 .kpi {
     background: linear-gradient(145deg, #12131a, #1a1b22);
-    padding: 20px;
-    border-radius: 12px;
-    text-align: center;
+    padding: 20px; border-radius: 12px; text-align: center;
     box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-    margin-bottom: 10px;
-    min-height: 120px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
+    margin-bottom: 10px; min-height: 120px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
     transition: transform 0.2s, box-shadow 0.2s;
 }
-.kpi:hover {
-    transform: scale(1.05);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.6);
-}
+.kpi:hover { transform: scale(1.05); box-shadow: 0 8px 20px rgba(0,0,0,0.6); }
 .kpi-value { font-size: 28px; font-weight: 700; color: #ffffff; margin-bottom: 5px; }
 .kpi-unit { font-size: 16px; font-weight: 500; color: #cfd8dc; margin-bottom: 5px; }
 .kpi-label { font-size: 14px; color: #cfd8dc; letter-spacing: 0.5px; }
-
-/* Dataframe styling */
 .stDataFrame { color: #e6edf3; font-family: 'Roboto', sans-serif; }
 </style>
 """, unsafe_allow_html=True)
@@ -193,70 +180,60 @@ def render_ghg_dashboard(include_data=True):
 # ---------------------------
 def render_energy_dashboard(include_input=True):
     st.subheader("⚡ Energy & CO₂e Dashboard (Apr→Mar)")
-    
+
     calorific_values = {"Diesel": 35.8,"Petrol": 34.2,"LPG":46.1,"CNG":48,"Coal":24,"Biomass":15}
     emission_factors = {"Diesel":2.68,"Petrol":2.31,"LPG":1.51,"CNG":2.02,"Coal":2.42,"Biomass":0.0,
                         "Electricity":0.82,"Solar":0.0,"Wind":0.0,"Purchased Green Energy":0.0,"Biogas":0.0}
     months = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"]
-    COLOR_PALETTE = {"Fossil": "#f39c12", "Renewable": "#2ecc71"}  # unified color palette
+    COLOR_PALETTE = {"Fossil": "#f39c12", "Renewable": "#2ecc71"}
 
-    # Scope 1 & 2 data
     df = st.session_state.entries
     scope1_2_data = df[df["Scope"].isin(["Scope 1","Scope 2"])].copy() if not df.empty else pd.DataFrame()
     if not scope1_2_data.empty:
         def compute_energy(row):
             fuel = row["Sub-Activity"]
             qty = row["Quantity"]
-            if fuel=="Grid Electricity":
-                energy_kwh = qty
-            else:
-                energy_kwh = (qty * calorific_values.get(fuel,0))/3.6
+            if fuel=="Grid Electricity": energy_kwh = qty
+            else: energy_kwh = (qty * calorific_values.get(fuel,0))/3.6
             co2e = qty * emission_factors.get(fuel,0)
             return pd.Series([energy_kwh, co2e])
         scope1_2_data[["Energy_kWh","CO2e_kg"]] = scope1_2_data.apply(compute_energy, axis=1)
         scope1_2_data["Type"]="Fossil"
     scope1_2_data["Month"] = np.random.choice(months, len(scope1_2_data)) if not scope1_2_data.empty else []
 
-    # Combine with stored renewable entries
     all_energy = pd.concat([scope1_2_data.rename(columns={"Sub-Activity":"Fuel"}), st.session_state.renewable_entries], ignore_index=True)
-    
-    # KPI calculation
+
     total_energy = all_energy.groupby("Type")["Energy_kWh"].sum().to_dict() if not all_energy.empty else {}
-    total_co2e = all_energy.groupby("Type")["CO2e_kg"].sum().to_dict() if not all_energy.empty else {}
     fossil_energy = total_energy.get("Fossil",0)
     renewable_energy = total_energy.get("Renewable",0)
-    fossil_co2e = total_co2e.get("Fossil",0)
-    renewable_co2e = total_co2e.get("Renewable",0)
+    total_sum = fossil_energy + renewable_energy
 
     # KPI Cards
-    c1, c2, c3 = st.columns(3)
-    for col, label, value, delta, key in zip(
+    c1,c2,c3 = st.columns(3)
+    for col, label, value, color in zip(
         [c1,c2,c3],
-        ["Fossil Energy (kWh)","Renewable Energy (kWh)","Total Energy (kWh)"],
-        [fossil_energy, renewable_energy, fossil_energy+renewable_energy],
-        [f"{fossil_co2e:,.0f} kg CO₂e", f"{renewable_co2e:,.0f} kg CO₂e", f"{fossil_co2e+renewable_co2e:,.0f} kg CO₂e"],
-        ["fossil","renewable","total"]
+        ["Total Energy (kWh)","Fossil Energy (kWh)","Renewable Energy (kWh)"],
+        [total_sum,fossil_energy,renewable_energy],
+        ["#ffffff",COLOR_PALETTE["Fossil"],COLOR_PALETTE["Renewable"]]
     ):
-        color = COLOR_PALETTE.get(label.split()[0], "#ffffff")
         col.markdown(f"""
         <div class='kpi'>
             <div class='kpi-value' style='color:{color}'>{value:,.0f}</div>
             <div class='kpi-unit'>kWh</div>
             <div class='kpi-label'>{label.lower()}</div>
-            <div style='color:#cfd8dc;font-size:14px;margin-top:5px;'>{delta}</div>
         </div>
         """, unsafe_allow_html=True)
 
-    # Monthly trend chart
+    # Monthly trend chart (Energy page only)
     if not all_energy.empty:
         all_energy["Month"] = pd.Categorical(all_energy.get("Month", months[0]), categories=months, ordered=True)
-        monthly_trend = all_energy.groupby(["Month","Type"]).sum().reset_index()
+        monthly_trend = all_energy.groupby(["Month","Type"])["Energy_kWh"].sum().reset_index()
         st.subheader("Monthly Energy Consumption (kWh)")
-        fig1 = px.line(monthly_trend, x="Month", y="Energy_kWh", color="Type",
-                       color_discrete_map=COLOR_PALETTE, markers=True)
-        st.plotly_chart(fig1, use_container_width=True)
+        fig = px.line(monthly_trend, x="Month", y="Energy_kWh", color="Type",
+                      color_discrete_map=COLOR_PALETTE, markers=True)
+        st.plotly_chart(fig, use_container_width=True)
 
-    # Renewable Energy Input Form
+    # Renewable input form
     if include_input:
         st.subheader("Add Renewable Energy Entry")
         num_entries = st.number_input("Number of renewable energy entries to add", min_value=1, max_value=20, value=1)

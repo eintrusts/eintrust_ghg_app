@@ -80,6 +80,7 @@ with st.sidebar:
     st.markdown("---")
     
     sidebar_button("Home")
+    
     env_exp = st.expander("Environment", expanded=True)
     with env_exp:
         sidebar_button("GHG")
@@ -100,7 +101,10 @@ with st.sidebar:
         sidebar_button("Policies")
         sidebar_button("Compliance")
         sidebar_button("Risk Management")
-        sidebar_button("SDG")  # Added SDG button here
+    
+    # SDG button **outside Governance expander** so always visible
+    st.markdown("---")
+    sidebar_button("SDG")
 
 # ---------------------------
 # Initialize Data
@@ -128,6 +132,14 @@ months = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar
 
 SCOPE_COLORS = {"Scope 1": "#81c784", "Scope 2": "#4db6ac", "Scope 3": "#aed581"}
 ENERGY_COLORS = {"Fossil": "#f39c12", "Renewable": "#2ecc71"}
+
+SDG_LIST = [
+    "No Poverty", "Zero Hunger", "Good Health & Wellbeing", "Quality Education", "Gender Equality",
+    "Clean Water & Sanitation", "Affordable & Clean Energy", "Decent Work & Economic Growth",
+    "Industry, Innovation & Infrastructure", "Reduced Inequalities", "Sustainable Cities & Communities",
+    "Responsible Consumption & Production", "Climate Action", "Life Below Water", "Life on Land",
+    "Peace, Justice & Strong Institutions", "Partnerships for the Goals"
+]
 
 # ---------------------------
 # GHG Dashboard
@@ -294,6 +306,11 @@ elif st.session_state.page == "GHG":
     render_ghg_dashboard(include_data=True, show_chart=True)
 elif st.session_state.page == "Energy":
     render_energy_dashboard(include_input=True, show_chart=True)
+elif st.session_state.page == "SDG":
+    st.title("Sustainable Development Goals (SDGs)")
+    st.subheader("All 17 SDGs")
+    for i, sdg in enumerate(SDG_LIST, start=1):
+        st.markdown(f"**{i}. {sdg}**")
 else:
     st.subheader(f"{st.session_state.page} section")
     st.info("This section is under development. Please select other pages from sidebar.")

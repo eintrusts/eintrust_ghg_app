@@ -21,13 +21,12 @@ if "emissions_log" not in st.session_state:
     st.session_state.emissions_log = []
 
 # --- Sidebar Navigation ---
-nav_choice = st.sidebar.radio("Navigation", ["Dashboard", "Input CSV", "Profile"], index=1)
+nav_choice = st.sidebar.radio("Navigation", ["Dashboard", "Profile"], index=0)
 
 # --- Profile Section ---
 if nav_choice == "Profile":
     st.sidebar.header("👤 Profile")
     
-    # Initialize session state for profile
     if "profile_photo" not in st.session_state:
         st.session_state.profile_photo = None
     if "responsible_name" not in st.session_state:
@@ -57,56 +56,6 @@ if nav_choice == "Profile":
     st.session_state.responsible_contact = st.sidebar.text_input(
         "Responsible Person Contact", st.session_state.responsible_contact
     )
-
-# --- CSV Upload ---
-elif nav_choice == "Input CSV":
-    st.header("Upload Activity Data")
-    st.markdown("CSV columns required: Scope, Category, Activity, Quantity")
-    uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
-    if uploaded_file:
-        try:
-            df = pd.read_csv(uploaded_file)
-            required_cols = {"Scope", "Category", "Activity", "Quantity"}
-            if not required_cols.issubset(df.columns):
-                st.error(f"CSV must have columns: {required_cols}")
-            else:
-                for _, row in df.iterrows():
-                    scope = row["Scope"]
-                    category = row.get("Category","-")
-                    activity = row["Activity"]
-                    quantity = float(row["Quantity"])
-
-                    # Filter emission factor
-                    ef_df = emission_factors[(emission_factors["scope"]==scope) & (emission_factors["activity"]==activity)]
-                    if scope=="Scope 3":
-                        ef_df = ef_df[ef_df["category"]==category]
-
-                    if not ef_df.empty:
-                        unit = ef_df["unit"].values[0]
-                        ef = ef_df["emission_factor"].values[0]
-                        emissions = quantity*ef
-                        entry = {
-                            "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            "Scope": scope,
-                            "Category": category,
-                            "Activity": activity,
-                            "Quantity": quantity,
-                            "Unit": unit,
-                            "Emission Factor": ef,
-                            "Emissions (tCO₂e)": emissions
-                        }
-                        st.session_state.emissions_log.append(entry)
-                    else:
-                        st.warning(f"No emission factor found for Activity:{activity}, Scope:{scope}, Category:{category}")
-
-                # Update summary
-                summary = {"Scope 1":0,"Scope 2":0,"Scope 3":0}
-                for e in st.session_state.emissions_log:
-                    summary[e["Scope"]] += e["Emissions (tCO₂e)"]
-                st.session_state.emissions_summary = summary
-                st.success("CSV processed successfully!")
-        except Exception as e:
-            st.error(f"Failed to process CSV: {e}")
 
 # --- Dashboard ---
 else:
@@ -170,7 +119,7 @@ else:
             for k,v in latest.items():
                 st.markdown(f"- {k}: {v}")
         else:
-            st.info("No data yet. Add from sidebar or upload CSV.")
+            st.info("No data yet. Add from sidebar.")
 
     with col2:
         st.subheader("📊 Emission Breakdown by Scope")

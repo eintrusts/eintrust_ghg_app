@@ -36,10 +36,11 @@ TARGET_FOLDER = "/sites/EinTrust/Shared Documents/ClientData"
 ctx = ClientContext(SHAREPOINT_URL).with_credentials(UserCredential(USERNAME, PASSWORD))
 
 # --- Manual User Database ---
-# Example: company_name -> {username: password}
+# Example: company_name -> [list of usernames]
 USER_DB = {
-    "Demo Company": {"admin": "admin123"},
-    "Test Company": {"user1": "pass123"}
+    "Demo Company": ["admin", "finance", "operations"],
+    "Test Company": ["user1", "user2"],
+    "GreenTech": ["gt_admin", "gt_user"]
 }
 
 # --- Logout ---
@@ -52,22 +53,19 @@ def logout():
 # --- Login Page ---
 def login_page():
     st.title("EinTrust Login")
-    company_name = st.text_input("Company Name")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+    company_name = st.selectbox("Company Name", options=list(USER_DB.keys()))
+    username = st.selectbox("Username", options=USER_DB.get(company_name, []))
     if st.button("Login"):
-        if company_name in USER_DB and username in USER_DB[company_name] and USER_DB[company_name][username] == password:
-            st.session_state.user_logged_in = True
-            st.session_state.user_profile = {
-                "company_name": company_name,
-                "username": username,
-                "responsible_person_name": "",
-                "responsible_person_contact": ""
-            }
-            st.session_state.page = "dashboard"
-            st.experimental_rerun()
-        else:
-            st.error("Invalid login credentials.")
+        # No password needed in this version
+        st.session_state.user_logged_in = True
+        st.session_state.user_profile = {
+            "company_name": company_name,
+            "username": username,
+            "responsible_person_name": "",
+            "responsible_person_contact": ""
+        }
+        st.session_state.page = "dashboard"
+        st.experimental_rerun()
 
 # --- Profile Page ---
 def profile_page():

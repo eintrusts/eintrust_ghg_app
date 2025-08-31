@@ -50,8 +50,6 @@ def format_indian(n: float) -> str:
             res = s + "," + res
     return ("-" if x < 0 else "") + res
 
-months = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"]
-
 # ---------------------------
 # Sidebar & Navigation
 # ---------------------------
@@ -132,6 +130,8 @@ scope_activities = {
 units_dict = {"Diesel Generator": "Liters", "Petrol Generator": "Liters", "Diesel Vehicle": "Liters",
               "Grid Electricity": "kWh"}
 
+months = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"]
+
 SCOPE_COLORS = {"Scope 1": "#81c784", "Scope 2": "#4db6ac", "Scope 3": "#aed581"}
 ENERGY_COLORS = {"Fossil": "#f39c12", "Renewable": "#2ecc71"}
 
@@ -175,47 +175,6 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
         fig = px.bar(monthly_trend, x="Month", y="Quantity", color="Scope", barmode="stack",
                      color_discrete_map=SCOPE_COLORS)
         st.plotly_chart(fig, use_container_width=True)
-
-    if include_data:
-        scope = st.selectbox("Select scope", list(scope_activities.keys()))
-        activity = st.selectbox("Select activity / category", list(scope_activities[scope].keys()))
-        sub_options = scope_activities[scope][activity]
-
-        if scope != "Scope 3":
-            sub_activity = st.selectbox("Select sub-activity", list(sub_options.keys()))
-            st.info(sub_options[sub_activity])
-        else:
-            sub_activity = st.selectbox("Select sub-category", list(sub_options.keys()))
-
-        specific_item = None
-        if scope == "Scope 3":
-            items = scope_activities[scope][activity][sub_activity]
-            if items is not None:
-                specific_item = st.selectbox("Select specific item", items)
-
-        unit = units_dict.get(sub_activity, "Number of flights" if sub_activity=="Air Travel" else "km / kg / tonnes")
-        quantity = st.number_input(f"Enter quantity ({unit})", min_value=0.0, format="%.2f")
-        uploaded_file = st.file_uploader("Upload CSV/XLS/XLSX/PDF for cross verification (optional)", type=["csv","xls","xlsx","pdf"])
-
-        if st.button("Add Entry"):
-            new_entry = {
-                "Scope": scope,
-                "Activity": activity,
-                "Sub-Activity": sub_activity,
-                "Specific Item": specific_item if specific_item else "",
-                "Quantity": quantity,
-                "Unit": unit
-            }
-            st.session_state.entries = pd.concat([st.session_state.entries, pd.DataFrame([new_entry])], ignore_index=True)
-            st.success("GHG entry added successfully!")
-
-        if not st.session_state.entries.empty:
-            st.subheader("All entries")
-            display_df = st.session_state.entries.copy()
-            display_df["Quantity"] = display_df["Quantity"].apply(lambda x: format_indian(x))
-            st.dataframe(display_df)
-            csv = display_df.to_csv(index=False).encode('utf-8')
-            st.download_button("Download all entries as CSV", csv, "ghg_entries.csv", "text/csv")
 
 # ---------------------------
 # Energy Dashboard
@@ -261,28 +220,12 @@ def render_energy_dashboard(include_input=True, show_chart=True):
         """, unsafe_allow_html=True)
 
     if show_chart and not all_energy.empty:
-        all_energy["Month"] = pd.Categorical(all_energy.get("Month", months[0]), categories=months, ordered=True)
+        all_energy["Month"] = pd.Categorical(all_energy["Month"], categories=months, ordered=True)
         monthly_trend = all_energy.groupby(["Month","Type"])["Energy_kWh"].sum().reset_index()
         st.subheader("Monthly Energy Consumption (kWh)")
-        fig = px.bar(monthly_trend, x="Month", y="Energy_KWh", color="Type", barmode="stack",
+        fig = px.bar(monthly_trend, x="Month", y="Energy_kWh", color="Type", barmode="stack",
                      color_discrete_map=ENERGY_COLORS)
         st.plotly_chart(fig, use_container_width=True)
-
-    if include_input:
-        st.subheader("Add Renewable Energy Entry")
-        with st.form("renewable_form"):
-            source = st.selectbox("Source", ["Solar","Wind","Biogas","Purchased Green Energy"])
-            location = st.text_input("Location")
-            annual_energy = st.number_input("Annual Energy kWh", min_value=0.0)
-            submitted = st.form_submit_button("Add Renewable Entry")
-            if submitted:
-                new_entries = []
-                for m in months:
-                    new_entries.append({"Source":source,"Location":location,"Month":m,
-                                       "Energy_kWh":annual_energy/12,"Type":"Renewable",
-                                       "CO2e_kg":annual_energy/12*emission_factors.get(source,0)})
-                st.session_state.renewable_entries = pd.concat([st.session_state.renewable_entries, pd.DataFrame(new_entries)], ignore_index=True)
-                st.success("Renewable energy entry added successfully!")
 
 # ---------------------------
 # Water Dashboard
@@ -292,7 +235,7 @@ def render_water_dashboard():
     water_df = st.session_state.water_data
     adv_df = st.session_state.advanced_water_data
 
-    # KPI Cards
+    # KPI cards
     total_water = water_df["Quantity_m3"].sum()
     total_cost = water_df["Cost_INR"].sum()
     recycled_water = adv_df["Water_Recycled_m3"].sum()
@@ -300,27 +243,29 @@ def render_water_dashboard():
     treatment_coverage = adv_df["Treatment_Before_Discharge"].value_counts().get("Yes",0)
     avg_stp_capacity = adv_df["STP_ETP_Capacity_kL_day"].mean() if not adv_df.empty else 0
 
-    col1, col2, col3, col4, col5 = st.columns(5)
-    col1.metric("Total Water Used (m³)", f"{total_water:,.0f}")
-    col2.metric("Estimated Cost (INR)", f"₹ {total_cost:,.0f}")
-    col3.metric("Recycled Water (m³)", f"{recycled_water:,.0f}")
-    col4.metric("Rainwater Harvested (m³)", f"{rainwater:,.0f}")
-    col5.metric("Locations with Treatment", f"{treatment_coverage}")
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("Total Water Used (m³)", f"{total_water:,.0f}")
+    c2.metric("Estimated Cost (INR)", f"₹ {total_cost:,.0f}")
+    c3.metric("Recycled Water (m³)", f"{recycled_water:,.0f}")
+    c4.metric("Rainwater Harvested (m³)", f"{rainwater:,.0f}")
+    c5.metric("Locations with Treatment", f"{treatment_coverage}")
     st.metric("Average STP/ETP Capacity (kL/day)", f"{avg_stp_capacity:,.1f}")
 
-    # Monthly Trends
+    # Monthly trends
     if not water_df.empty:
         monthly_trend = water_df.groupby(["Month","Source"]).sum().reset_index()
         monthly_trend["Month"] = pd.Categorical(monthly_trend["Month"], categories=months, ordered=True)
         st.subheader("Monthly Water Usage (m³) by Source")
-        fig1 = px.line(monthly_trend, x="Month", y="Quantity_m3", color="Source", markers=True, labels={"Quantity_m3":"Water (m³)"})
+        fig1 = px.line(monthly_trend, x="Month", y="Quantity_m3", color="Source", markers=True,
+                       labels={"Quantity_m3":"Water (m³)"})
         st.plotly_chart(fig1, use_container_width=True)
 
     if not adv_df.empty:
         adv_monthly = adv_df.groupby("Month")[["Rainwater_Harvested_m3","Water_Recycled_m3"]].sum().reset_index()
         adv_monthly["Month"] = pd.Categorical(adv_monthly["Month"], categories=months, ordered=True)
         st.subheader("Monthly Rainwater & Recycled Water (m³)")
-        fig2 = px.line(adv_monthly, x="Month", y=["Rainwater_Harvested_m3","Water_Recycled_m3"], markers=True, labels={"value":"Water (m³)","variable":"Type"})
+        fig2 = px.line(adv_monthly, x="Month", y=["Rainwater_Harvested_m3","Water_Recycled_m3"],
+                       markers=True, labels={"value":"Water (m³)","variable":"Type"})
         st.plotly_chart(fig2, use_container_width=True)
 
 # ---------------------------

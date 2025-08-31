@@ -318,51 +318,55 @@ def render_energy_dashboard(include_input=True, show_chart=True):
             st.experimental_rerun()
 
 # ---------------------------
-# Employee Dashboard
+# Employee Dashboard (Updated)
 # ---------------------------
 def render_employee_dashboard():
     st.title("Employee Information & Workforce Profile")
 
-    st.markdown("### Workforce Profile")
-    st.markdown("#### Number of Employees (Permanent/Temporary)")
-    cols = st.columns([2,1,1,1,1,1,1])
-    fields = ["Permanent","Temporary","Total"]
+    # Define fields
+    fields = [
+        {"Field": "Permanent Employees", "Info":"", "Frameworks":"BRSR, GRI 2-7, SASB"},
+        {"Field": "Temporary Employees", "Info":"", "Frameworks":"BRSR, GRI 2-7, SASB"},
+        {"Field": "Age <30", "Info":"", "Frameworks":"BRSR P5"},
+        {"Field": "Age 30-50", "Info":"", "Frameworks":"BRSR P5"},
+        {"Field": "Age >50", "Info":"", "Frameworks":"BRSR P5"},
+        {"Field": "Employees from marginalized communities", "Info":"", "Frameworks":"BRSR P5, GRI 405"},
+        {"Field": "Persons with Disabilities", "Info":"", "Frameworks":"BRSR P5"},
+        {"Field": "Women in Leadership", "Info":"", "Frameworks":"BRSR P5, GRI 405"},
+        {"Field": "Policy on Diversity and Inclusion", "Info":"Yes/No, Upload Link", "Frameworks":"BRSR P5, GRI 405"},
+        {"Field": "Avg. Tenure of Employees (years)", "Info":"", "Frameworks":"BRSR P5"},
+        {"Field": "Employee Turnover Rate (%)", "Info":"", "Frameworks":"BRSR P5, GRI 405"},
+        {"Field": "Type of Trainings", "Info":"", "Frameworks":"GRI 405"},
+        {"Field": "Number of Employees Trained", "Info":"", "Frameworks":"BRSR P5, GRI 404"},
+        {"Field": "Total Training Hours", "Info":"", "Frameworks":"BRSR P5, GRI 404"},
+        {"Field": "Employee Engagement Survey Done?", "Info":"Yes/No", "Frameworks":"BRSR P5"},
+        {"Field": "Parental Leave Policy", "Info":"Yes/No", "Frameworks":"BRSR P5"},
+        {"Field": "Benefits Provided (PF/Health Insurance/Paid Leave)", "Info":"Yes/No/Details", "Frameworks":"GRI 201, GRI 401, SASB, BRSR P3, P5"}
+    ]
+
     genders = ["Male","Female"]
-    entries = []
-    for i, field in enumerate(fields):
-        for j, gender in enumerate(genders):
-            val = cols[j+1].number_input(f"{field} - {gender}", min_value=0, value=0, key=f"emp_{field}_{gender}")
-            entries.append({"Field": f"{field} - {gender}", "Male": val if gender=="Male" else 0, "Female": val if gender=="Female" else 0, "Total": val, "Information":"", "Relevant Frameworks":"BRSR, GRI 2-7, SASB"})
 
-    st.markdown("#### Age-wise Distribution")
-    age_groups = ["<30","30-50",">50"]
-    cols = st.columns([2,1,1,1,1,1,1])
-    for age in age_groups:
-        for gender in genders:
-            val = cols[j+1].number_input(f"Age {age} - {gender}", min_value=0, value=0, key=f"age_{age}_{gender}")
-            entries.append({"Field": f"Age {age} - {gender}", "Male": val if gender=="Male" else 0, "Female": val if gender=="Female" else 0, "Total": val, "Information":"", "Relevant Frameworks":"BRSR, GRI 2-7"})
+    # Initialize data
+    if st.session_state.employee_data.empty:
+        data_rows = []
+        for f in fields:
+            row = {"Field": f["Field"], "Male":0, "Female":0, "Total":0, "Information": f["Info"], "Relevant Frameworks": f["Frameworks"]}
+            data_rows.append(row)
+        st.session_state.employee_data = pd.DataFrame(data_rows)
 
-    st.markdown("#### Diversity and Inclusion")
-    entries.append({"Field":"Employees from marginalized communities", "Male":0,"Female":0,"Total":0,"Information":"","Relevant Frameworks":"BRSR P5, GRI 405"})
-    entries.append({"Field":"Persons with Disabilities","Male":0,"Female":0,"Total":0,"Information":"","Relevant Frameworks":"BRSR P5"})
-    entries.append({"Field":"Women in Leadership","Male":0,"Female":0,"Total":0,"Information":"","Relevant Frameworks":"BRSR P5, GRI 405"})
-    entries.append({"Field":"Policy on Diversity and Inclusion","Male":0,"Female":0,"Total":0,"Information":"If Yes, Upload/ Share link of Policy Here","Relevant Frameworks":"BRSR P5, GRI 405"})
+    df = st.session_state.employee_data.copy()
 
-    st.markdown("#### Retention & Turnover")
-    entries.append({"Field":"Avg. Tenure of Employees","Male":0,"Female":0,"Total":0,"Information":"","Relevant Frameworks":"BRSR P5"})
-    entries.append({"Field":"Employee Turnover Rate","Male":0,"Female":0,"Total":0,"Information":"","Relevant Frameworks":"BRSR P5, GRI 405"})
+    st.markdown("### Fill Male/Female Counts")
+    for idx, row in df.iterrows():
+        cols = st.columns(3)
+        male_val = cols[0].number_input(f"{row['Field']} - Male", min_value=0, value=int(row["Male"]), key=f"{row['Field']}_M")
+        female_val = cols[1].number_input(f"{row['Field']} - Female", min_value=0, value=int(row["Female"]), key=f"{row['Field']}_F")
+        total_val = male_val + female_val
+        df.at[idx, "Male"] = male_val
+        df.at[idx, "Female"] = female_val
+        df.at[idx, "Total"] = total_val
+        cols[2].markdown(f"**Total: {total_val}**")
 
-    st.markdown("#### Training and Development")
-    entries.append({"Field":"Type of Trainings","Male":0,"Female":0,"Total":0,"Information":"","Relevant Frameworks":"GRI 405"})
-    entries.append({"Field":"Number of Employees Trained","Male":0,"Female":0,"Total":0,"Information":"","Relevant Frameworks":"BRSR P5, GRI 404"})
-    entries.append({"Field":"Total Training Hours","Male":0,"Female":0,"Total":0,"Information":"","Relevant Frameworks":"BRSR P5, GRI 404"})
-
-    st.markdown("#### Employee Welfare & Engagement")
-    entries.append({"Field":"Employee Engagement Survey Done?","Male":0,"Female":0,"Total":0,"Information":"","Relevant Frameworks":"BRSR P5"})
-    entries.append({"Field":"Parental Leave Policy","Male":0,"Female":0,"Total":0,"Information":"","Relevant Frameworks":"BRSR P5"})
-    entries.append({"Field":"Benefits Provided (PF/Health Insurance/Paid Leave)","Male":0,"Female":0,"Total":0,"Information":"","Relevant Frameworks":"GRI 201, GRI 401, SASB, BRSR P3, BRSR P5"})
-
-    df = pd.DataFrame(entries)
     st.session_state.employee_data = df
     st.dataframe(df)
 

@@ -134,7 +134,7 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
                                     [kpis['Total Quantity'],kpis['Scope 1'],kpis['Scope 2'],kpis['Scope 3']],
                                     ["#ffffff",SCOPE_COLORS['Scope 1'],SCOPE_COLORS['Scope 2'],SCOPE_COLORS['Scope 3']]):
         col.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{color}'>{format_indian(value)}</div><div class='kpi-unit'>{kpis['Unit']}</div><div class='kpi-label'>{label.lower()}</div></div>", unsafe_allow_html=True)
-    
+
     if show_chart and not st.session_state.entries.empty:
         df = st.session_state.entries.copy()
         if "Month" not in df.columns:
@@ -144,27 +144,6 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
         st.subheader("Monthly GHG Emissions")
         fig = px.bar(monthly_trend, x="Month", y="Quantity", color="Scope", barmode="stack", color_discrete_map=SCOPE_COLORS)
         st.plotly_chart(fig, use_container_width=True)
-    
-    if include_data:
-        scope_options = ["Scope 1","Scope 2","Scope 3"]
-        scope = st.selectbox("Select Scope", scope_options)
-        activity = st.text_input("Activity")
-        sub_activity = st.text_input("Sub-Activity")
-        unit = st.text_input("Unit", "tCO₂e")
-        quantity = st.number_input(f"Quantity ({unit})", min_value=0.0, format="%.2f")
-        if st.button("Add GHG Entry"):
-            new_entry = {"Scope":scope,"Activity":activity,"Sub-Activity":sub_activity,"Specific Item":"","Quantity":quantity,"Unit":unit}
-            st.session_state.entries = pd.concat([st.session_state.entries, pd.DataFrame([new_entry])], ignore_index=True)
-            st.success("Entry added!")
-            st.experimental_rerun()
-    
-    if not st.session_state.entries.empty:
-        st.subheader("All GHG Entries")
-        df = st.session_state.entries.copy()
-        df["Quantity"] = df["Quantity"].apply(lambda x: format_indian(x))
-        st.dataframe(df)
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button("Download CSV", csv, "ghg_entries.csv", "text/csv")
 
 # ---------------------------
 # Energy Dashboard
@@ -173,17 +152,17 @@ def render_energy_dashboard(include_input=True, show_chart=True):
     st.subheader("Energy")
     df_fossil = st.session_state.entries.copy() if not st.session_state.entries.empty else pd.DataFrame()
     df_renew = st.session_state.renewable_entries.copy() if not st.session_state.renewable_entries.empty else pd.DataFrame()
-    
+
     total_fossil = df_fossil["Quantity"].sum() if not df_fossil.empty else 0
     total_renew = df_renew["Energy_kWh"].sum() if not df_renew.empty else 0
     total_energy = total_fossil + total_renew
-    
+
     c1,c2,c3 = st.columns(3)
-    for col,label,value,color in zip([c1,c2,c3],["Total Energy (kWh)","Fossil Energy (kWh)","Renewable Energy (kWh)"],
+    for col,label,value,color in zip([c1,c2,c3], ["Total Energy (kWh)","Fossil Energy (kWh)","Renewable Energy (kWh)"],
                                     [total_energy,total_fossil,total_renew],
                                     ["#ffffff",ENERGY_COLORS["Fossil"],ENERGY_COLORS["Renewable"]]):
         col.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{color}'>{format_indian(value)}</div><div class='kpi-unit'>kWh</div><div class='kpi-label'>{label.lower()}</div></div>", unsafe_allow_html=True)
-    
+
     if show_chart and (not df_fossil.empty or not df_renew.empty):
         df_fossil["Month"] = pd.Categorical(df_fossil.get("Month",months[0]), categories=months, ordered=True)
         df_renew["Month"] = pd.Categorical(df_renew.get("Month",months[0]), categories=months, ordered=True)
@@ -192,36 +171,22 @@ def render_energy_dashboard(include_input=True, show_chart=True):
         st.subheader("Monthly Energy Consumption (kWh)")
         fig = px.bar(monthly_trend, x="Month", y="Energy_kWh", color="Type", barmode="stack", color_discrete_map=ENERGY_COLORS)
         st.plotly_chart(fig, use_container_width=True)
-    
-    if include_input:
-        st.subheader("Add Renewable Energy Entry")
-        source = st.selectbox("Source", ["Solar","Wind","Biogas","Purchased Green Energy"])
-        location = st.text_input("Location")
-        annual_energy = st.number_input("Annual Energy (kWh)", min_value=0.0)
-        if st.button("Add Renewable Entry"):
-            monthly_energy = annual_energy/12
-            new_entries = []
-            for m in months:
-                new_entries.append({"Source":source,"Location":location,"Month":m,"Energy_kWh":monthly_energy,"CO2e_kg":0,"Type":"Renewable"})
-            st.session_state.renewable_entries = pd.concat([st.session_state.renewable_entries, pd.DataFrame(new_entries)], ignore_index=True)
-            st.success("Renewable energy entry added!")
-            st.experimental_rerun()
 
 # ---------------------------
 # Water Dashboard
 # ---------------------------
 def render_water_dashboard():
     st.subheader("Water")
-    # --- KPIs ---
     df = st.session_state.water_entries
     total_fresh = df["Freshwater_kL"].sum() if not df.empty else 0
     total_recycled = df["Recycled_kL"].sum() if not df.empty else 0
     total_rain = df["Rainwater_kL"].sum() if not df.empty else 0
+
     c1,c2,c3 = st.columns(3)
-    for col,label,value in zip([c1,c2,c3],["Freshwater Used","Water Recycled","Rainwater Harvested"],[total_fresh,total_recycled,total_rain]):
+    for col,label,value in zip([c1,c2,c3], ["Freshwater Used","Water Recycled","Rainwater Harvested"], [total_fresh,total_recycled,total_rain]):
         col.markdown(f"<div class='kpi'><div class='kpi-value'>{format_indian(value)}</div><div class='kpi-unit'>kL</div><div class='kpi-label'>{label}</div></div>", unsafe_allow_html=True)
-    
-    # --- Input ---
+
+    # --- Input Form only on Water Page ---
     st.subheader("Add Water Entry")
     location = st.text_input("Location")
     freshwater = st.number_input("Freshwater used (kL)", min_value=0.0)
@@ -229,21 +194,19 @@ def render_water_dashboard():
     rain = st.number_input("Rainwater harvested (kL)", min_value=0.0)
     stp_capacity = st.number_input("STP/ETP Capacity (kL/day)", min_value=0.0)
     if st.button("Add Water Entry"):
-        new_entry = {"Location":location,"Month":np.random.choice(months),"Freshwater_kL":freshwater,"Recycled_kL":recycled,
+        new_entry = {"Location":location,"Month":np.random.choice(months),
+                     "Freshwater_kL":freshwater,"Recycled_kL":recycled,
                      "Rainwater_kL":rain,"STP_ETP_kL":stp_capacity}
         st.session_state.water_entries = pd.concat([st.session_state.water_entries, pd.DataFrame([new_entry])], ignore_index=True)
         st.success("Water entry added!")
         st.experimental_rerun()
-    
-    # --- Chart & Table ---
+
     if not df.empty:
         df["Month"] = pd.Categorical(df["Month"], categories=months, ordered=True)
         monthly_trend = df.groupby("Month")[["Freshwater_kL","Recycled_kL","Rainwater_kL"]].sum().reset_index()
         st.subheader("Monthly Water Usage (kL)")
-        fig = px.bar(monthly_trend, x="Month", y=["Freshwater_kL","Recycled_kL","Rainwater_kL"],
-                     barmode="stack", labels={"value":"kL","variable":"Water Type"})
+        fig = px.bar(monthly_trend, x="Month", y=["Freshwater_kL","Recycled_kL","Rainwater_kL"], barmode="stack", labels={"value":"kL","variable":"Water Type"})
         st.plotly_chart(fig, use_container_width=True)
-        
         st.subheader("All Water Entries")
         st.dataframe(df)
         csv = df.to_csv(index=False).encode('utf-8')
@@ -278,7 +241,6 @@ if st.session_state.page=="Home":
     st.title("EinTrust Sustainability Dashboard")
     render_ghg_dashboard(include_data=False, show_chart=False)
     render_energy_dashboard(include_input=False, show_chart=False)
-    render_water_dashboard()
 elif st.session_state.page=="GHG":
     render_ghg_dashboard(include_data=True, show_chart=True)
 elif st.session_state.page=="Energy":

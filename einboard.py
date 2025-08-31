@@ -1,88 +1,70 @@
 import streamlit as st
+import pandas as pd
+import plotly.express as px
 
 # --- Page Config ---
-st.set_page_config(page_title="EinTrust ESG Dashboard", page_icon="🌍", layout="wide")
+st.set_page_config(page_title="EinTrust GHG Dashboard", page_icon="🌍", layout="wide")
 
-# --- Custom CSS for Theme ---
-st.markdown("""
-    <style>
-        body {
-            background-color: #1e2d24; /* dark greenish background */
-            color: #e8f5e9; /* light text */
-        }
-        .sidebar .sidebar-content {
-            background-color: #13322b; /* dark sidebar */
-        }
-        h1, h2, h3, h4 {
-            color: #a3d9a5; /* light green headers */
-        }
-        .st-expanderHeader {
-            font-weight: bold;
-            color: #64b5f6 !important; /* royal blue for expander titles */
-        }
-    </style>
-""", unsafe_allow_html=True)
+# --- Sidebar Navigation ---
+st.sidebar.title("Navigation")
+menu = st.sidebar.radio("Go to:", ["Input Data", "ESG Dashboard"])
 
-# --- Title ---
-st.title("🌍 EinTrust ESG Dashboard")
+# --- Data Storage Placeholder ---
+if "esg_data" not in st.session_state:
+    st.session_state["esg_data"] = {
+        "Environment": {},
+        "Social": {},
+        "Governance": {}
+    }
 
-st.markdown("A structured ESG data collection and tracking platform for clients.")
+# ---------------------- INPUT DATA TAB ----------------------
+if menu == "Input Data":
+    st.title("📊 ESG Data Input")
+    st.markdown("Please enter your organization's ESG data below:")
 
-# --- ESG Sections ---
-st.header("E - Environment")
-with st.expander("🌱 GHG Emissions"):
-    st.number_input("Total GHG emissions (tCO₂e)", min_value=0, step=1)
-    st.text_area("Notes / Assumptions")
-    st.file_uploader("Upload supporting document", type=["csv","xlsx","pdf"])
+    # Environment Section
+    with st.expander("🌱 Environment"):
+        st.session_state["esg_data"]["Environment"]["GHG Emissions"] = st.number_input("Total GHG Emissions (tCO2e)", min_value=0.0)
+        st.session_state["esg_data"]["Environment"]["Energy Consumption"] = st.number_input("Total Energy Consumption (MWh)", min_value=0.0)
+        st.session_state["esg_data"]["Environment"]["Water Consumption"] = st.number_input("Total Water Withdrawal (ML)", min_value=0.0)
+        st.session_state["esg_data"]["Environment"]["Waste Generated"] = st.number_input("Total Waste Generated (tons)", min_value=0.0)
+        st.session_state["esg_data"]["Environment"]["Biodiversity Initiatives"] = st.text_area("Biodiversity Initiatives")
 
-with st.expander("⚡ Energy"):
-    st.number_input("Total Energy Consumption (kWh)", min_value=0, step=100)
-    st.number_input("Renewable Energy Share (%)", min_value=0, max_value=100, step=1)
-    st.text_area("Notes")
+    # Social Section
+    with st.expander("👥 Social"):
+        st.session_state["esg_data"]["Social"]["Employees"] = st.number_input("Total Employees", min_value=0)
+        st.session_state["esg_data"]["Social"]["Health & Safety"] = st.text_area("Health & Safety Measures")
+        st.session_state["esg_data"]["Social"]["CSR Initiatives"] = st.text_area("CSR Initiatives")
 
-with st.expander("💧 Water"):
-    st.number_input("Total Water Withdrawal (m³)", min_value=0, step=100)
-    st.number_input("Water Recycled (%)", min_value=0, max_value=100, step=1)
+    # Governance Section
+    with st.expander("🏛 Governance"):
+        st.session_state["esg_data"]["Governance"]["Board Composition"] = st.text_area("Board Composition")
+        st.session_state["esg_data"]["Governance"]["Policies"] = st.text_area("Key Policies")
+        st.session_state["esg_data"]["Governance"]["Compliance"] = st.text_area("Compliance Mechanisms")
+        st.session_state["esg_data"]["Governance"]["Risk Management"] = st.text_area("Risk Management Approach")
 
-with st.expander("♻ Waste"):
-    st.number_input("Total Waste Generated (tons)", min_value=0, step=1)
-    st.number_input("Waste Recycled (%)", min_value=0, max_value=100, step=1)
+    st.success("Data saved in session. Switch to 'ESG Dashboard' to view results.")
 
-with st.expander("🌿 Biodiversity"):
-    st.text_area("Biodiversity initiatives/projects")
-    st.file_uploader("Upload biodiversity-related reports", type=["pdf","docx"])
+# ---------------------- ESG DASHBOARD TAB ----------------------
+elif menu == "ESG Dashboard":
+    st.title("📈 ESG Dashboard")
+    esg_data = st.session_state["esg_data"]
 
+    # Show Environment Data
+    st.subheader("🌱 Environment")
+    st.write(esg_data["Environment"])
 
-st.header("S - Social")
-with st.expander("👥 Employees"):
-    st.number_input("Total Employees", min_value=0, step=1)
-    st.number_input("Training Hours per Employee", min_value=0, step=1)
+    # Show Social Data
+    st.subheader("👥 Social")
+    st.write(esg_data["Social"])
 
-with st.expander("⚕ Health & Safety"):
-    st.number_input("Total Incidents", min_value=0, step=1)
-    st.number_input("Lost Time Injury Frequency Rate (LTIFR)", min_value=0, step=1)
+    # Show Governance Data
+    st.subheader("🏛 Governance")
+    st.write(esg_data["Governance"])
 
-with st.expander("🤝 CSR"):
-    st.number_input("CSR Spend (₹)", min_value=0, step=1000)
-    st.text_area("CSR Projects Overview")
-
-
-st.header("G - Governance")
-with st.expander("🏛 Board"):
-    st.number_input("Total Board Members", min_value=0, step=1)
-    st.number_input("Independent Directors (%)", min_value=0, max_value=100, step=1)
-
-with st.expander("📜 Policies"):
-    st.text_area("List of Key Policies (Code of Conduct, ESG Policy, etc.)")
-
-with st.expander("✔ Compliance"):
-    st.text_area("Compliance Certifications (ISO, SEBI-BRR, etc.)")
-    st.file_uploader("Upload Compliance Documents", type=["pdf","docx"])
-
-with st.expander("⚖ Risk Management"):
-    st.text_area("Key ESG Risks Identified")
-    st.text_area("Mitigation Measures")
-
-# --- Save Button ---
-if st.button("💾 Save ESG Data"):
-    st.success("Data saved successfully (placeholder).")
+    # Example visualization: Environment numeric indicators
+    env_numeric = {k: v for k, v in esg_data["Environment"].items() if isinstance(v, (int, float))}
+    if env_numeric:
+        df_env = pd.DataFrame(list(env_numeric.items()), columns=["Indicator", "Value"])
+        fig = px.bar(df_env, x="Indicator", y="Value", title="Environment Indicators")
+        st.plotly_chart(fig, use_container_width=True)

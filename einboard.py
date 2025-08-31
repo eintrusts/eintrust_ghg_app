@@ -58,9 +58,10 @@ if "page" not in st.session_state:
 
 def sidebar_button(label):
     active = st.session_state.page == label
-    if st.button(label, key=label):
+    def set_page():
         st.session_state.page = label
-        st.experimental_rerun()
+    st.button(label, key=label, on_click=set_page)
+    
     st.markdown(f"""
     <style>
     div.stButton > button[key="{label}"] {{
@@ -111,7 +112,7 @@ if "entries" not in st.session_state:
 if "renewable_entries" not in st.session_state:
     st.session_state.renewable_entries = pd.DataFrame(columns=["Source","Location","Month","Energy_kWh","CO2e_kg","Type"])
 if "water_entries" not in st.session_state:
-    st.session_state.water_entries = pd.DataFrame(columns=["Location","Source","Month","Quantity_m3","Cost_INR"])
+    st.session_state.water_entries = pd.DataFrame(columns=["Location","Month","Quantity_m3"])
 
 # ---------------------------
 # Constants
@@ -204,89 +205,27 @@ def render_energy_dashboard(include_input=True, show_chart=True):
         st.plotly_chart(fig, use_container_width=True)
 
 # ---------------------------
-# Water Dashboard (Full Integration)
+# Water Dashboard
 # ---------------------------
 def render_water_dashboard(include_input=True, show_chart=True):
-    st.subheader("💧 Water Consumption Dashboard (Apr → Mar)")
+    st.subheader("Water Consumption")
     df = st.session_state.water_entries
 
-    # ---------------------------
-    # KPI Cards
-    # ---------------------------
     total_water = df["Quantity_m3"].sum() if not df.empty else 0
-    total_cost = df["Cost_INR"].sum() if not df.empty else 0
-    recycled_water = df[df["Source"]=="Recycled"]["Quantity_m3"].sum() if not df.empty else 0
+    c1 = st.columns(1)[0]
+    c1.markdown(f"""
+    <div class='kpi'>
+        <div class='kpi-value' style='color:{WATER_COLOR}'>{total_water:,.2f}</div>
+        <div class='kpi-unit'>m³</div>
+        <div class='kpi-label'>total water consumption</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Total Water Used (m³)", f"{total_water:,.2f}")
-    c2.metric("Estimated Cost (INR)", f"₹ {total_cost:,.0f}")
-    c3.metric("Recycled/Other Water (m³)", f"{recycled_water:,.2f}")
-
-    # ---------------------------
-    # Monthly Trend Chart
-    # ---------------------------
-    if not df.empty:
-        monthly_trend = df.groupby(["Month","Source"])["Quantity_m3"].sum().reset_index()
-        monthly_trend["Month"] = pd.Categorical(monthly_trend["Month"], categories=months, ordered=True)
-        st.subheader("Monthly Water Usage (m³)")
-        fig1 = px.line(monthly_trend, x="Month", y="Quantity_m3", color="Source", markers=True,
-                       labels={"Quantity_m3":"Water (m³)"}, title="Monthly Water Usage by Source")
-        st.plotly_chart(fig1, use_container_width=True)
-
-        # ---------------------------
-        # Location-wise Chart
-        # ---------------------------
-        location_trend = df.groupby(["Location","Source"])["Quantity_m3"].sum().reset_index()
-        st.subheader("Water Usage by Location")
-        fig2 = px.bar(location_trend, x="Location", y="Quantity_m3", color="Source", barmode="stack",
-                      labels={"Quantity_m3":"Water (m³)"})
-        st.plotly_chart(fig2, use_container_width=True)
-
-    # ---------------------------
-    # Data Entry Section
-    # ---------------------------
-    st.subheader("Add Water Consumption Data")
-    num_entries = st.number_input("Number of entries to add", min_value=1, max_value=20, value=1)
-    new_entries = []
-    for i in range(int(num_entries)):
-        col1, col2, col3, col4 = st.columns([3,3,2,2])
-        with col1:
-            location = st.text_input(f"Location {i+1}", "", key=f"loc{i}")
-        with col2:
-            source = st.selectbox(f"Source {i+1}", ["Municipal","Groundwater","Recycled","Other"], key=f"src{i}")
-        with col3:
-            quantity = st.number_input(f"Quantity (m³) {i+1}", min_value=0.0, key=f"qty{i}")
-        with col4:
-            cost = st.number_input(f"Cost (INR) {i+1}", min_value=0.0, key=f"cost{i}")
-        month = st.selectbox(f"Month {i+1}", months, key=f"month{i}")
-        new_entries.append({"Location":location,"Source":source,"Month":month,"Quantity_m3":quantity,"Cost_INR":cost})
-
-    if new_entries:
-        new_df = pd.DataFrame(new_entries)
-        st.session_state.water_entries = pd.concat([df,new_df], ignore_index=True)
-
-    # ---------------------------
-    # CSV Upload
-    # ---------------------------
-    st.subheader("Or Upload CSV File")
-    uploaded_file = st.file_uploader("Upload water consumption CSV", type=["csv"])
-    if uploaded_file:
-        file_df = pd.read_csv(uploaded_file)
-        required_cols = ["Location","Source","Month","Quantity_m3","Cost_INR"]
-        if all(col in file_df.columns for col in required_cols):
-            st.session_state.water_entries = pd.concat([df,file_df[required_cols]], ignore_index=True)
-            st.success("File uploaded successfully!")
-        else:
-            st.error(f"CSV must contain columns: {required_cols}")
-
-    # ---------------------------
-    # Download CSV
-    # ---------------------------
-    st.subheader("Download Water Consumption Data")
-    def convert_df(df):
-        return df.to_csv(index=False).encode('utf-8')
-    csv = convert_df(st.session_state.water_entries)
-    st.download_button("Download CSV", csv, "water_consumption_data.csv", "text/csv")
+    if show_chart and not df.empty:
+        df["Month"] = pd.Categorical(df["Month"], categories=months, ordered=True)
+        monthly_trend = df.groupby("Month")["Quantity_m3"].sum().reset_index()
+        fig = px.bar(monthly_trend, x="Month", y="Quantity_m3", color_discrete_sequence=[WATER_COLOR])
+        st.plotly_chart(fig, use_container_width=True)
 
 # ---------------------------
 # Render Pages

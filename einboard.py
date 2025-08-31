@@ -35,7 +35,6 @@ st.markdown("""
   .kpi-label {
       font-size: 14px;
       color: #cfd8dc;
-      text-transform: uppercase;
       letter-spacing: 0.5px;
   }
   
@@ -155,7 +154,7 @@ units_dict = {"Diesel Generator": "Liters", "Petrol Generator": "Liters", "Diese
 def calculate_kpis():
     """Compute Scope totals and overall total"""
     df = st.session_state.entries
-    summary = {"Scope 1": 0.0, "Scope 2": 0.0, "Scope 3": 0.0, "Total Quantity": 0.0}
+    summary = {"Scope 1": 0.0, "Scope 2": 0.0, "Scope 3": 0.0, "Total Quantity": 0.0, "Unit": "tCO₂e"}
     if not df.empty:
         for scope in ["Scope 1","Scope 2","Scope 3"]:
             summary[scope] = df[df["Scope"]==scope]["Quantity"].sum()
@@ -171,33 +170,33 @@ def render_ghg_dashboard(include_data=True):
 
     c1, c2, c3, c4, c5 = st.columns(5)
     with c1:
-        st.markdown(f"<div class='kpi'><div class='kpi-value'>{format_indian(kpis['Total Quantity'])}</div><div class='kpi-label'>Total Quantity</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='kpi'><div class='kpi-value'>{format_indian(kpis['Total Quantity'])} {kpis['Unit']}</div><div class='kpi-label'>Total quantity</div></div>", unsafe_allow_html=True)
     with c2:
-        st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 1']}'>{format_indian(kpis['Scope 1'])}</div><div class='kpi-label'>Scope 1</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 1']}'>{format_indian(kpis['Scope 1'])} {kpis['Unit']}</div><div class='kpi-label'>Scope 1</div></div>", unsafe_allow_html=True)
     with c3:
-        st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 2']}'>{format_indian(kpis['Scope 2'])}</div><div class='kpi-label'>Scope 2</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 2']}'>{format_indian(kpis['Scope 2'])} {kpis['Unit']}</div><div class='kpi-label'>Scope 2</div></div>", unsafe_allow_html=True)
     with c4:
-        st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 3']}'>{format_indian(kpis['Scope 3'])}</div><div class='kpi-label'>Scope 3</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{SCOPE_COLORS['Scope 3']}'>{format_indian(kpis['Scope 3'])} {kpis['Unit']}</div><div class='kpi-label'>Scope 3</div></div>", unsafe_allow_html=True)
 
     if include_data:
-        st.subheader("Add Activity Data")
+        st.subheader("Add activity data")
 
         # Scope selection
-        scope = st.selectbox("Select Scope", list(scope_activities.keys()))
-        activity = st.selectbox("Select Activity / Category", list(scope_activities[scope].keys()))
+        scope = st.selectbox("Select scope", list(scope_activities.keys()))
+        activity = st.selectbox("Select activity / category", list(scope_activities[scope].keys()))
         sub_options = scope_activities[scope][activity]
 
         if scope != "Scope 3":
-            sub_activity = st.selectbox("Select Sub-Activity", list(sub_options.keys()))
+            sub_activity = st.selectbox("Select sub-activity", list(sub_options.keys()))
             st.info(sub_options[sub_activity])
         else:
-            sub_activity = st.selectbox("Select Sub-Category", list(sub_options.keys()))
+            sub_activity = st.selectbox("Select sub-category", list(sub_options.keys()))
 
         specific_item = None
         if scope == "Scope 3":
             items = scope_activities[scope][activity][sub_activity]
             if items is not None:
-                specific_item = st.selectbox("Select Specific Item", items)
+                specific_item = st.selectbox("Select specific item", items)
 
         # Determine unit
         if scope != "Scope 3":
@@ -206,16 +205,16 @@ def render_ghg_dashboard(include_data=True):
             if sub_activity == "Air Travel":
                 unit = "Number of flights"
             else:
-                unit = "km / kg / Tonnes"
+                unit = "km / kg / tonnes"
 
-        quantity = st.number_input(f"Enter Quantity ({unit})", min_value=0.0, format="%.2f")
+        quantity = st.number_input(f"Enter quantity ({unit})", min_value=0.0, format="%.2f")
 
         # File upload for cross-verification only
-        st.subheader("Optional: Upload File")
+        st.subheader("Optional: upload file")
         uploaded_file = st.file_uploader("Upload CSV/XLS/XLSX/PDF", type=["csv","xls","xlsx","pdf"])
 
         # Add manual entry
-        if st.button("Add Entry"):
+        if st.button("Add entry"):
             new_entry = {
                 "Scope": scope,
                 "Activity": activity,
@@ -230,13 +229,13 @@ def render_ghg_dashboard(include_data=True):
 
         # Display Entries table
         if not st.session_state.entries.empty:
-            st.subheader("All Entries")
+            st.subheader("All entries")
             display_df = st.session_state.entries.copy()
             display_df["Quantity"] = display_df["Quantity"].apply(lambda x: format_indian(x))
             st.dataframe(display_df)
 
             csv = display_df.to_csv(index=False).encode('utf-8')
-            st.download_button("Download All Entries as CSV", csv, "ghg_entries.csv", "text/csv")
+            st.download_button("Download all entries as CSV", csv, "ghg_entries.csv", "text/csv")
 
 # ---------------------------
 # Render pages
@@ -246,5 +245,5 @@ if st.session_state.page == "Home":
 elif st.session_state.page == "GHG":
     render_ghg_dashboard(include_data=True)    # GHG: full manual entry
 else:
-    st.subheader(f"{st.session_state.page} Section")
+    st.subheader(f"{st.session_state.page} section")
     st.info("This section is under development. Please select other pages from sidebar.")

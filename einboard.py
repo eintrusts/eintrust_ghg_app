@@ -18,8 +18,11 @@ html, body, [class*="css"] { font-family: 'Roboto', sans-serif; }
 .kpi-value { font-size: 28px; font-weight: 700; color: #ffffff; margin-bottom: 5px; }
 .kpi-unit { font-size: 16px; font-weight: 500; color: #cfd8dc; margin-bottom: 5px; }
 .kpi-label { font-size: 14px; color: #cfd8dc; letter-spacing: 0.5px; }
-.sidebar-logo { width: 150px; }
-.expander-scroll { max-height: 300px; overflow-y: auto; }
+.sdg-card { border-radius: 10px; padding: 15px; margin: 8px; display: inline-block; width: 100%; min-height: 110px; text-align: left; color: white; }
+.sdg-number { font-weight: 700; font-size: 20px; }
+.sdg-name { font-size: 16px; margin-bottom: 5px; }
+.sdg-percent { font-size: 14px; }
+@media (min-width: 768px) { .sdg-card { width: 220px; display: inline-block; } }
 </style>
 """, unsafe_allow_html=True)
 
@@ -67,49 +70,35 @@ def sidebar_button(label):
     """, unsafe_allow_html=True)
 
 with st.sidebar:
-    st.image("https://github.com/eintrusts/eintrust_ghg_app/blob/main/EinTrust%20%20(2).png?raw=true", width=150)
+    st.image("https://github.com/eintrusts/eintrust_ghg_app/blob/main/EinTrust%20%20(2).png?raw=true", use_column_width=True, output_format="png")
     st.markdown("---")
-    
     sidebar_button("Home")
-
     env_exp = st.expander("Environment", expanded=True)
     with env_exp:
-        st.markdown('<div class="expander-scroll">', unsafe_allow_html=True)
         sidebar_button("GHG")
         sidebar_button("Energy")
         sidebar_button("Water")
         sidebar_button("Waste")
         sidebar_button("Biodiversity")
-        st.markdown('</div>', unsafe_allow_html=True)
-
     social_exp = st.expander("Social")
     with social_exp:
-        st.markdown('<div class="expander-scroll">', unsafe_allow_html=True)
         sidebar_button("Employee")
         sidebar_button("Health & Safety")
         sidebar_button("CSR")
-        st.markdown('</div>', unsafe_allow_html=True)
-
     gov_exp = st.expander("Governance")
     with gov_exp:
-        st.markdown('<div class="expander-scroll">', unsafe_allow_html=True)
         sidebar_button("Board")
         sidebar_button("Policies")
         sidebar_button("Compliance")
         sidebar_button("Risk Management")
-        st.markdown('</div>', unsafe_allow_html=True)
-
+    st.markdown("---")
     sidebar_button("SDG")
-
     reports_exp = st.expander("Reports")
     with reports_exp:
-        st.markdown('<div class="expander-scroll">', unsafe_allow_html=True)
         sidebar_button("BRSR")
         sidebar_button("GRI")
         sidebar_button("CDP")
         sidebar_button("TCFD")
-        st.markdown('</div>', unsafe_allow_html=True)
-
     sidebar_button("Settings")
     sidebar_button("Log Out")
 
@@ -132,37 +121,47 @@ scope_activities = {
     "Scope 2": {"Electricity Consumption":{"Grid Electricity":"Electricity from grid"}},
     "Scope 3": {"Business Travel":{"Air Travel": None}}
 }
-units_dict = {"Diesel Generator": "Liters", "Petrol Generator": "Liters", "Diesel Vehicle": "Liters", "Grid Electricity": "kWh", "Air Travel":"km"}
+units_dict = {"Diesel Generator": "Liters", "Petrol Generator": "Liters", "Diesel Vehicle": "Liters", "Grid Electricity": "kWh"}
 months = ["Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar"]
 SCOPE_COLORS = {"Scope 1": "#81c784", "Scope 2": "#4db6ac", "Scope 3": "#aed581"}
-
-emission_factors = {
-    "Diesel Generator": 2.68,
-    "Petrol Generator": 2.31,
-    "Diesel Vehicle": 2.68,
-    "Grid Electricity": 0.82,
-    "Air Travel": 0.25,
-    "Solar": 0.0,
-    "Wind": 0.0,
-    "Biogas": 0.0,
-    "Purchased Green Energy": 0.0
-}
-
-ENERGY_COLORS = {"Fossil":"#f39c12","Renewable":"#2ecc71"}
+ENERGY_COLORS = {"Fossil": "#f39c12", "Renewable": "#2ecc71"}
+emission_factors = {"Diesel":2.68,"Petrol":2.31,"LPG":1.51,"CNG":2.02,"Coal":2.42,"Biomass":0.0,
+                    "Electricity":0.82,"Solar":0.0,"Wind":0.0,"Purchased Green Energy":0.0,"Biogas":0.0}
+SDG_LIST = ["No Poverty","Zero Hunger","Good Health & Wellbeing","Quality Education","Gender Equality",
+            "Clean Water & Sanitation","Affordable & Clean Energy","Decent Work & Economic Growth","Industry, Innovation & Infrastructure",
+            "Reduced Inequalities","Sustainable Cities & Communities","Responsible Consumption & Production","Climate Action","Life Below Water",
+            "Life on Land","Peace, Justice & Strong Institutions","Partnerships for the Goals"]
+SDG_COLORS = ["#e5243b","#dda63a","#4c9f38","#c5192d","#ff3a21","#26bde2","#fcc30b","#a21942","#fd6925","#dd1367","#fd9d24",
+              "#bf8b2e","#3f7e44","#0a97d9","#56c02b","#00689d","#19486a"]
 
 # ---------------------------
-# GHG Dashboard
+# KPI Calculations
 # ---------------------------
 def calculate_kpis():
     df = st.session_state.entries
     summary = {"Scope 1":0.0,"Scope 2":0.0,"Scope 3":0.0,"Total Quantity":0.0,"Unit":"tCO₂e"}
     if not df.empty:
-        df["CO2e_kg"] = df.apply(lambda row: row["Quantity"] * emission_factors.get(row["Sub-Activity"],0), axis=1)
         for scope in ["Scope 1","Scope 2","Scope 3"]:
-            summary[scope] = df[df["Scope"]==scope]["CO2e_kg"].sum()/1000
-        summary["Total Quantity"] = df["CO2e_kg"].sum()/1000
+            summary[scope] = df[df["Scope"]==scope]["Quantity"].sum()
+        summary["Total Quantity"] = df["Quantity"].sum()
     return summary
 
+def calculate_energy_totals():
+    fossil = 0
+    renewable = 0
+    if not st.session_state.entries.empty:
+        df = st.session_state.entries.copy()
+        df["Energy_kWh"] = df.apply(lambda row: row["Quantity"] if row["Sub-Activity"]=="Grid Electricity" else (row["Quantity"]*35.8)/3.6, axis=1)
+        df["CO2e_kg"] = df.apply(lambda row: row["Quantity"] * emission_factors.get(row["Sub-Activity"],0), axis=1)
+        df["Type"]="Fossil"
+        fossil = df["Energy_kWh"].sum()
+    if not st.session_state.renewable_entries.empty:
+        renewable = st.session_state.renewable_entries["Energy_kWh"].sum()
+    return fossil, renewable
+
+# ---------------------------
+# GHG Dashboard
+# ---------------------------
 def render_ghg_dashboard(include_data=True, show_chart=True):
     st.subheader("GHG Emissions")
     kpis = calculate_kpis()
@@ -172,15 +171,14 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
                                     ["#ffffff",SCOPE_COLORS['Scope 1'],SCOPE_COLORS['Scope 2'],SCOPE_COLORS['Scope 3']]):
         col.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{color}'>{format_indian(value)}</div><div class='kpi-unit'>{kpis['Unit']}</div><div class='kpi-label'>{label.lower()}</div></div>", unsafe_allow_html=True)
 
-    # Monthly trend chart
     if show_chart and not st.session_state.entries.empty:
         df = st.session_state.entries.copy()
         if "Month" not in df.columns:
             df["Month"] = np.random.choice(months, len(df))
         df["Month"] = pd.Categorical(df["Month"], categories=months, ordered=True)
-        monthly_trend = df.groupby(["Month","Scope"])["CO2e_kg"].sum().reset_index()
+        monthly_trend = df.groupby(["Month","Scope"])["Quantity"].sum().reset_index()
         st.subheader("Monthly GHG Emissions")
-        fig = px.bar(monthly_trend, x="Month", y="CO2e_kg", color="Scope", barmode="stack", color_discrete_map=SCOPE_COLORS)
+        fig = px.bar(monthly_trend, x="Month", y="Quantity", color="Scope", barmode="stack", color_discrete_map=SCOPE_COLORS)
         st.plotly_chart(fig, use_container_width=True)
 
     # Data entry form
@@ -212,32 +210,29 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
 # ---------------------------
 def render_energy_dashboard(include_input=True, show_chart=True):
     st.subheader("Energy")
-    df = st.session_state.entries.copy()
-
-    # Fossil energy calculation
-    if not df.empty:
-        df["Energy_kWh"] = df.apply(lambda row: row["Quantity"] if row["Sub-Activity"]=="Grid Electricity" else (row["Quantity"]*35.8)/3.6, axis=1)
-        df["CO2e_kg"] = df.apply(lambda row: row["Quantity"] * emission_factors.get(row["Sub-Activity"],0), axis=1)
-        df["Type"]="Fossil"
-        if "Month" not in df.columns:
-            df["Month"] = np.random.choice(months, len(df))
-
-    all_energy = pd.concat([df, st.session_state.renewable_entries], ignore_index=True) if not st.session_state.renewable_entries.empty else df
-
-    total_energy = all_energy.groupby("Type")["Energy_kWh"].sum().to_dict() if not all_energy.empty else {}
-    fossil_energy = total_energy.get("Fossil",0)
-    renewable_energy = total_energy.get("Renewable",0)
-    total_sum = fossil_energy + renewable_energy
+    fossil, renewable = calculate_energy_totals()
+    total_sum = fossil + renewable
 
     c1,c2,c3 = st.columns(3)
     for col,label,value,color in zip([c1,c2,c3],
                                      ["Total Energy (kWh)","Fossil Energy (kWh)","Renewable Energy (kWh)"],
-                                     [total_sum,fossil_energy,renewable_energy],
+                                     [total_sum,fossil,renewable],
                                      ["#ffffff",ENERGY_COLORS["Fossil"],ENERGY_COLORS["Renewable"]]):
         col.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{color}'>{int(value):,}</div><div class='kpi-unit'>kWh</div><div class='kpi-label'>{label.lower()}</div></div>", unsafe_allow_html=True)
 
-    if show_chart and not all_energy.empty:
-        all_energy["Month"] = pd.Categorical(all_energy.get("Month", months[0]), categories=months, ordered=True)
+    if show_chart and (fossil+renewable)>0:
+        df_fossil = st.session_state.entries.copy() if not st.session_state.entries.empty else pd.DataFrame()
+        df_renew = st.session_state.renewable_entries.copy() if not st.session_state.renewable_entries.empty else pd.DataFrame()
+        df_list = []
+        if not df_fossil.empty:
+            df_fossil["Energy_kWh"] = df_fossil.apply(lambda row: row["Quantity"] if row["Sub-Activity"]=="Grid Electricity" else (row["Quantity"]*35.8)/3.6, axis=1)
+            df_fossil["Type"]="Fossil"
+            df_fossil["Month"] = np.random.choice(months, len(df_fossil))
+            df_list.append(df_fossil[["Month","Energy_kWh","Type"]])
+        if not df_renew.empty:
+            df_list.append(df_renew[["Month","Energy_kWh","Type"]])
+        all_energy = pd.concat(df_list, ignore_index=True)
+        all_energy["Month"] = pd.Categorical(all_energy["Month"], categories=months, ordered=True)
         monthly_trend = all_energy.groupby(["Month","Type"])["Energy_kWh"].sum().reset_index()
         st.subheader("Monthly Energy Consumption (kWh)")
         fig = px.bar(monthly_trend, x="Month", y="Energy_kWh", color="Type", barmode="stack", color_discrete_map=ENERGY_COLORS)
@@ -268,19 +263,12 @@ def render_energy_dashboard(include_input=True, show_chart=True):
 # ---------------------------
 # SDG Dashboard
 # ---------------------------
-SDG_LIST = ["No Poverty","Zero Hunger","Good Health & Wellbeing","Quality Education","Gender Equality",
-            "Clean Water & Sanitation","Affordable & Clean Energy","Decent Work & Economic Growth","Industry, Innovation & Infrastructure",
-            "Reduced Inequalities","Sustainable Cities & Communities","Responsible Consumption & Production","Climate Action","Life Below Water",
-            "Life on Land","Peace, Justice & Strong Institutions","Partnerships for the Goals"]
-SDG_COLORS = ["#e5243b","#dda63a","#4c9f38","#c5192d","#ff3a21","#26bde2","#fcc30b","#a21942","#fd6925","#dd1367","#fd9d24",
-              "#bf8b2e","#3f7e44","#0a97d9","#56c02b","#00689d","#19486a"]
-
 def render_sdg_dashboard():
     st.title("Sustainable Development Goals (SDGs)")
-    st.subheader("Company Engagement by SDG")
     kpis = calculate_kpis()
-    total_energy = st.session_state.renewable_entries["Energy_kWh"].sum() if not st.session_state.renewable_entries.empty else 0
-    st.markdown(f"**GHG Emissions:** {format_indian(kpis['Total Quantity'])} tCO₂e | **Renewable Energy:** {int(total_energy):,} kWh")
+    fossil, renewable = calculate_energy_totals()
+    total_energy = fossil + renewable
+    st.markdown(f"**GHG Emissions:** {format_indian(kpis['Total Quantity'])} tCO₂e | **Total Energy:** {int(total_energy):,} kWh")
 
     num_cols = 4
     rows = (len(SDG_LIST)+num_cols-1)//num_cols
@@ -295,7 +283,7 @@ def render_sdg_dashboard():
             engagement = st.session_state.sdg_engagement.get(sdg_number,0)
             engagement = cols[c].slider(f"Engagement % - SDG {sdg_number}",0,100,value=engagement,key=f"sdg{sdg_number}")
             st.session_state.sdg_engagement[sdg_number] = engagement
-            cols[c].markdown(f"<div class='kpi' style='background-color:{sdg_color}; color:white; font-weight:500;'>{sdg_name}<br>Engagement: {engagement}%</div>", unsafe_allow_html=True)
+            cols[c].markdown(f"<div class='sdg-card' style='background-color:{sdg_color}'><div class='sdg-number'>SDG {sdg_number}</div><div class='sdg-name'>{sdg_name}</div><div class='sdg-percent'>Engagement: {engagement}%</div></div>", unsafe_allow_html=True)
             idx+=1
 
 # ---------------------------

@@ -394,7 +394,7 @@ def render_sdg_dashboard():
             idx += 1
 
 # ---------------------------
-# Render Pages
+# Render Page
 # ---------------------------
 if st.session_state.page == "Home":
     st.title("EinTrust Sustainability Dashboard")

@@ -1,148 +1,179 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from io import StringIO
+from datetime import datetime
 
 # ---------------------------
 # Config & Theme
 # ---------------------------
 st.set_page_config(page_title="EinTrust ESG Dashboard", page_icon="🌍", layout="wide")
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+html, body, [class*="css"]  {
+    font-family: 'Roboto', sans-serif;
+    color: #f0f2f6;
+    background-color: #0e1117;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # ---------------------------
-# Initialize Session State for Data Storage
+# Helper Functions
 # ---------------------------
-if "environment_data" not in st.session_state:
-    st.session_state.environment_data = pd.DataFrame(columns=["Month", "Rainwater Harvested (KL)", "Water Recycled (KL)", "Treatment Capacity (KL/day)"])
+def init_session_state(section):
+    if section not in st.session_state:
+        st.session_state[section] = pd.DataFrame()
 
-if "social_data" not in st.session_state:
-    st.session_state.social_data = pd.DataFrame(columns=["Month", "Training Hours", "Employees Covered", "Safety Incidents"])
+def add_entry(section, entry):
+    st.session_state[section] = pd.concat([
+        st.session_state[section], pd.DataFrame([entry])
+    ], ignore_index=True)
 
-if "governance_data" not in st.session_state:
-    st.session_state.governance_data = pd.DataFrame(columns=["Month", "Board Meetings", "Policies Updated", "Audits Conducted"])
+def render_section(section_name, kpis, form_fields):
+    init_session_state(section_name)
 
-# ---------------------------
-# Helper: Add New Entry
-# ---------------------------
-def add_entry(df_name, new_row):
-    st.session_state[df_name] = pd.concat([st.session_state[df_name], pd.DataFrame([new_row])], ignore_index=True)
-
-# ---------------------------
-# KPI Summary Function
-# ---------------------------
-def show_kpis(df, kpi_mapping):
-    cols = st.columns(len(kpi_mapping))
-    for i, (label, column) in enumerate(kpi_mapping.items()):
-        if not df.empty:
-            value = df[column].sum()
-        else:
-            value = 0
-        cols[i].metric(label, value)
-
-# ---------------------------
-# Data Section Template
-# ---------------------------
-def section(name, df_name, kpi_mapping, form_fields):
-    df = st.session_state[df_name]
-
-    st.subheader(f"{name} – KPI Summary")
-    show_kpis(df, kpi_mapping)
-
-    st.subheader(f"{name} – Monthly Trend")
-    if not df.empty:
-        fig = px.line(df, x="Month", y=list(kpi_mapping.values()), markers=True)
-        st.plotly_chart(fig, use_container_width=True)
+    st.subheader("📊 KPI Summary")
+    if st.session_state[section_name].empty:
+        st.info("No data yet. Please add entries.")
     else:
-        st.info("No data yet.")
+        kpi_cols = st.columns(len(kpis))
+        for i, (kpi, func) in enumerate(kpis.items()):
+            with kpi_cols[i]:
+                st.metric(kpi, func(st.session_state[section_name]))
 
-    st.subheader(f"{name} – Add New Entry")
-    with st.form(f"form_{df_name}"):
-        inputs = {}
-        inputs["Month"] = st.selectbox("Month", [
-            "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"
+    st.subheader("📈 Monthly Trend")
+    if st.session_state[section_name].empty:
+        st.info("No data available.")
+    else:
+        df = st.session_state[section_name]
+        if "Month" in df.columns and len(df) > 0:
+            trend = df.groupby("Month").sum().reset_index()
+            fig = px.line(trend, x="Month", y=trend.columns[1:], markers=True)
+            st.plotly_chart(fig, use_container_width=True)
+
+    st.subheader("➕ Input Form")
+    with st.form(f"form_{section_name}"):
+        entry = {}
+        entry["Date"] = datetime.today().strftime('%Y-%m-%d')
+        entry["Month"] = st.selectbox("Month", [
+            "April","May","June","July","August","September","October","November","December","January","February","March"
         ])
-        for field, dtype in form_fields.items():
-            if dtype == "int":
-                inputs[field] = st.number_input(field, min_value=0, step=1)
-            elif dtype == "float":
-                inputs[field] = st.number_input(field, min_value=0.0, step=0.1)
+        for field in form_fields:
+            entry[field] = st.number_input(field, min_value=0.0, step=1.0)
         submitted = st.form_submit_button("Add Entry")
         if submitted:
-            add_entry(df_name, inputs)
+            add_entry(section_name, entry)
             st.success("Entry added successfully!")
 
-    st.subheader(f"{name} – All Entries")
-    st.dataframe(df, use_container_width=True)
-    if not df.empty:
-        csv = df.to_csv(index=False)
-        st.download_button("Download CSV", csv, f"{name.lower()}_data.csv", "text/csv")
-
-# ---------------------------
-# Sidebar Navigation
-# ---------------------------
-menu = st.sidebar.radio("Navigation", ["Home", "Environment", "Social", "Governance"])
+    st.subheader("📂 All Entries")
+    if st.session_state[section_name].empty:
+        st.info("No entries yet.")
+    else:
+        st.dataframe(st.session_state[section_name], use_container_width=True)
+        st.download_button(
+            label="Download CSV",
+            data=st.session_state[section_name].to_csv(index=False).encode('utf-8'),
+            file_name=f"{section_name}_data.csv",
+            mime="text/csv"
+        )
 
 # ---------------------------
 # Home Page
 # ---------------------------
-if menu == "Home":
+def render_home():
     st.title("🌍 EinTrust ESG Dashboard")
-    st.markdown("#### Overall KPI Summary")
+    st.write("Overview of ESG KPIs across Environment, Social, and Governance.")
 
-    env_df = st.session_state.environment_data
-    soc_df = st.session_state.social_data
-    gov_df = st.session_state.governance_data
+    env_sections = ["Energy", "Water", "Waste"]
+    social_sections = ["Diversity", "HealthSafety"]
+    gov_sections = ["Compliance", "Ethics"]
 
-    cols = st.columns(3)
-    cols[0].metric("Total Rainwater Harvested (KL)", env_df["Rainwater Harvested (KL)"].sum() if not env_df.empty else 0)
-    cols[0].metric("Total Water Recycled (KL)", env_df["Water Recycled (KL)"].sum() if not env_df.empty else 0)
+    col1, col2, col3 = st.columns(3)
 
-    cols[1].metric("Total Training Hours", soc_df["Training Hours"].sum() if not soc_df.empty else 0)
-    cols[1].metric("Employees Covered", soc_df["Employees Covered"].sum() if not soc_df.empty else 0)
+    with col1:
+        st.subheader("Environment")
+        for sec in env_sections:
+            init_session_state(sec)
+            st.metric(f"{sec} Entries", len(st.session_state[sec]))
 
-    cols[2].metric("Board Meetings Held", gov_df["Board Meetings"].sum() if not gov_df.empty else 0)
-    cols[2].metric("Audits Conducted", gov_df["Audits Conducted"].sum() if not gov_df.empty else 0)
+    with col2:
+        st.subheader("Social")
+        for sec in social_sections:
+            init_session_state(sec)
+            st.metric(f"{sec} Entries", len(st.session_state[sec]))
+
+    with col3:
+        st.subheader("Governance")
+        for sec in gov_sections:
+            init_session_state(sec)
+            st.metric(f"{sec} Entries", len(st.session_state[sec]))
 
 # ---------------------------
-# Environment Section
+# Sidebar Navigation
 # ---------------------------
-elif menu == "Environment":
-    section(
-        "Environment",
-        "environment_data",
-        {"Rainwater Harvested (KL)": "Rainwater Harvested (KL)",
-         "Water Recycled (KL)": "Water Recycled (KL)",
-         "Treatment Capacity (KL/day)": "Treatment Capacity (KL/day)"},
-        {"Rainwater Harvested (KL)": "float",
-         "Water Recycled (KL)": "float",
-         "Treatment Capacity (KL/day)": "float"}
+menu = st.sidebar.radio("Navigation", [
+    "Home",
+    "Environment - Energy",
+    "Environment - Water",
+    "Environment - Waste",
+    "Social - Diversity",
+    "Social - Health & Safety",
+    "Governance - Compliance",
+    "Governance - Ethics"
+])
+
+# ---------------------------
+# Render Pages
+# ---------------------------
+if menu == "Home":
+    render_home()
+
+elif menu == "Environment - Energy":
+    render_section(
+        "Energy",
+        {"Total Energy (kWh)": lambda df: df["Energy (kWh)"].sum()},
+        ["Energy (kWh)"]
     )
 
-# ---------------------------
-# Social Section
-# ---------------------------
-elif menu == "Social":
-    section(
-        "Social",
-        "social_data",
-        {"Training Hours": "Training Hours",
-         "Employees Covered": "Employees Covered",
-         "Safety Incidents": "Safety Incidents"},
-        {"Training Hours": "int",
-         "Employees Covered": "int",
-         "Safety Incidents": "int"}
+elif menu == "Environment - Water":
+    render_section(
+        "Water",
+        {"Total Water (kL)": lambda df: df["Water (kL)"].sum()},
+        ["Water (kL)", "Rainwater Harvested (kL)", "Recycled (kL)", "Treatment Capacity (kL/day)"]
     )
 
-# ---------------------------
-# Governance Section
-# ---------------------------
-elif menu == "Governance":
-    section(
-        "Governance",
-        "governance_data",
-        {"Board Meetings": "Board Meetings",
-         "Policies Updated": "Policies Updated",
-         "Audits Conducted": "Audits Conducted"},
-        {"Board Meetings": "int",
-         "Policies Updated": "int",
-         "Audits Conducted": "int"}
+elif menu == "Environment - Waste":
+    render_section(
+        "Waste",
+        {"Total Waste (kg)": lambda df: df["Waste (kg)"].sum()},
+        ["Waste (kg)", "Recycled Waste (kg)", "Disposed Waste (kg)"]
+    )
+
+elif menu == "Social - Diversity":
+    render_section(
+        "Diversity",
+        {"Total Employees": lambda df: df["Employees"].sum()},
+        ["Employees", "Women Employees"]
+    )
+
+elif menu == "Social - Health & Safety":
+    render_section(
+        "HealthSafety",
+        {"Total Incidents": lambda df: df["Incidents"].sum()},
+        ["Incidents", "Training Hours"]
+    )
+
+elif menu == "Governance - Compliance":
+    render_section(
+        "Compliance",
+        {"Total Cases": lambda df: df["Cases"].sum()},
+        ["Cases"]
+    )
+
+elif menu == "Governance - Ethics":
+    render_section(
+        "Ethics",
+        {"Ethics Cases": lambda df: df["Cases"].sum()},
+        ["Cases"]
     )

@@ -148,6 +148,8 @@ emission_factors = {
     "Purchased Green Energy": 0.0
 }
 
+ENERGY_COLORS = {"Fossil":"#f39c12","Renewable":"#2ecc71"}
+
 # ---------------------------
 # GHG Dashboard
 # ---------------------------
@@ -170,6 +172,7 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
                                     ["#ffffff",SCOPE_COLORS['Scope 1'],SCOPE_COLORS['Scope 2'],SCOPE_COLORS['Scope 3']]):
         col.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{color}'>{format_indian(value)}</div><div class='kpi-unit'>{kpis['Unit']}</div><div class='kpi-label'>{label.lower()}</div></div>", unsafe_allow_html=True)
 
+    # Monthly trend chart
     if show_chart and not st.session_state.entries.empty:
         df = st.session_state.entries.copy()
         if "Month" not in df.columns:
@@ -180,45 +183,67 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
         fig = px.bar(monthly_trend, x="Month", y="CO2e_kg", color="Scope", barmode="stack", color_discrete_map=SCOPE_COLORS)
         st.plotly_chart(fig, use_container_width=True)
 
+    # Data entry form
+    if include_data:
+        scope = st.selectbox("Select Scope", list(scope_activities.keys()))
+        activity = st.selectbox("Select Activity", list(scope_activities[scope].keys()))
+        sub_options = scope_activities[scope][activity]
+        sub_activity = st.selectbox("Select Sub-Activity", list(sub_options.keys()))
+        st.info(sub_options[sub_activity])
+        unit = units_dict.get(sub_activity, "Number")
+        quantity = st.number_input(f"Enter quantity ({unit})", min_value=0.0, format="%.2f")
+        if st.button("Add Entry"):
+            new_entry = {"Scope":scope,"Activity":activity,"Sub-Activity":sub_activity,"Specific Item":"",
+                         "Quantity":quantity,"Unit":unit}
+            st.session_state.entries = pd.concat([st.session_state.entries, pd.DataFrame([new_entry])], ignore_index=True)
+            st.success("GHG entry added!")
+            st.experimental_rerun()
+
+    if not st.session_state.entries.empty:
+        st.subheader("All entries")
+        display_df = st.session_state.entries.copy()
+        display_df["Quantity"] = display_df["Quantity"].apply(lambda x: format_indian(x))
+        st.dataframe(display_df)
+        csv = display_df.to_csv(index=False).encode('utf-8')
+        st.download_button("Download CSV", csv, "ghg_entries.csv", "text/csv")
+
 # ---------------------------
 # Energy Dashboard
 # ---------------------------
-def render_energy_dashboard(include_input=True):
+def render_energy_dashboard(include_input=True, show_chart=True):
     st.subheader("Energy")
     df = st.session_state.entries.copy()
-    
-    # Fossil energy
+
+    # Fossil energy calculation
     if not df.empty:
-        calorific_values = {"Diesel Generator":35.8,"Petrol Generator":34.2,"Diesel Vehicle":35.8,"Grid Electricity":1.0}
-        df["Energy_kWh"] = df.apply(lambda row: row["Quantity"] if row["Sub-Activity"]=="Grid Electricity" else (row["Quantity"]*calorific_values.get(row["Sub-Activity"],0))/3.6, axis=1)
-        df["CO2e_kg"] = df.apply(lambda row: row["Quantity"]*emission_factors.get(row["Sub-Activity"],0), axis=1)
+        df["Energy_kWh"] = df.apply(lambda row: row["Quantity"] if row["Sub-Activity"]=="Grid Electricity" else (row["Quantity"]*35.8)/3.6, axis=1)
+        df["CO2e_kg"] = df.apply(lambda row: row["Quantity"] * emission_factors.get(row["Sub-Activity"],0), axis=1)
         df["Type"]="Fossil"
         if "Month" not in df.columns:
             df["Month"] = np.random.choice(months, len(df))
-    
-    # Combine with renewable
+
     all_energy = pd.concat([df, st.session_state.renewable_entries], ignore_index=True) if not st.session_state.renewable_entries.empty else df
-    
+
     total_energy = all_energy.groupby("Type")["Energy_kWh"].sum().to_dict() if not all_energy.empty else {}
     fossil_energy = total_energy.get("Fossil",0)
     renewable_energy = total_energy.get("Renewable",0)
     total_sum = fossil_energy + renewable_energy
 
-    ENERGY_COLORS = {"Fossil":"#f39c12","Renewable":"#2ecc71"}
     c1,c2,c3 = st.columns(3)
     for col,label,value,color in zip([c1,c2,c3],
                                      ["Total Energy (kWh)","Fossil Energy (kWh)","Renewable Energy (kWh)"],
                                      [total_sum,fossil_energy,renewable_energy],
                                      ["#ffffff",ENERGY_COLORS["Fossil"],ENERGY_COLORS["Renewable"]]):
         col.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{color}'>{int(value):,}</div><div class='kpi-unit'>kWh</div><div class='kpi-label'>{label.lower()}</div></div>", unsafe_allow_html=True)
-    
-    if not all_energy.empty:
-        all_energy["Month"] = pd.Categorical(all_energy["Month"], categories=months, ordered=True)
+
+    if show_chart and not all_energy.empty:
+        all_energy["Month"] = pd.Categorical(all_energy.get("Month", months[0]), categories=months, ordered=True)
         monthly_trend = all_energy.groupby(["Month","Type"])["Energy_kWh"].sum().reset_index()
         st.subheader("Monthly Energy Consumption (kWh)")
         fig = px.bar(monthly_trend, x="Month", y="Energy_kWh", color="Type", barmode="stack", color_discrete_map=ENERGY_COLORS)
         st.plotly_chart(fig, use_container_width=True)
-    
+
+    # Renewable energy input form
     if include_input:
         st.subheader("Add Renewable Energy Entry")
         num_entries = st.number_input("Number of renewable energy entries", min_value=1, max_value=10, value=1)
@@ -253,12 +278,10 @@ SDG_COLORS = ["#e5243b","#dda63a","#4c9f38","#c5192d","#ff3a21","#26bde2","#fcc3
 def render_sdg_dashboard():
     st.title("Sustainable Development Goals (SDGs)")
     st.subheader("Company Engagement by SDG")
-
-    # Integrate GHG & Energy totals
     kpis = calculate_kpis()
     total_energy = st.session_state.renewable_entries["Energy_kWh"].sum() if not st.session_state.renewable_entries.empty else 0
     st.markdown(f"**GHG Emissions:** {format_indian(kpis['Total Quantity'])} tCO₂e | **Renewable Energy:** {int(total_energy):,} kWh")
-    
+
     num_cols = 4
     rows = (len(SDG_LIST)+num_cols-1)//num_cols
     idx=0
@@ -281,11 +304,11 @@ def render_sdg_dashboard():
 if st.session_state.page=="Home":
     st.title("EinTrust Sustainability Dashboard")
     render_ghg_dashboard(include_data=False, show_chart=False)
-    render_energy_dashboard(include_input=False)
+    render_energy_dashboard(include_input=False, show_chart=False)
 elif st.session_state.page=="GHG":
     render_ghg_dashboard(include_data=True, show_chart=True)
 elif st.session_state.page=="Energy":
-    render_energy_dashboard(include_input=True)
+    render_energy_dashboard(include_input=True, show_chart=True)
 elif st.session_state.page=="SDG":
     render_sdg_dashboard()
 else:

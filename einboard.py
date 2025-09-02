@@ -571,18 +571,11 @@ def render_water_dashboard():
 
         col5, col6, col7, col8 = st.columns(4)
         discharged = col5.number_input("Water Discharged in kL", min_value=0.0, step=1.0)
-        discharge_dest = col6.text_input("Discharge Destination")
-        stressed = col7.selectbox("Water-Stressed Area?", ["Yes","No"])
-        monitoring = col8.selectbox("Monitoring Effluent", ["Yes","No"])
 
         col9, col10, col11, col12 = st.columns(4)
         treated = col9.selectbox("Treatment Before Discharge?", ["Yes","No"])
-        treatment_level = col10.text_input("Treatment Level")
         stp_capacity = col11.number_input("STP/ETP Capacity in kL/day", min_value=0.0, step=1.0)
-        risk_assess = col12.selectbox("Water Risk Assessment", ["Done","Not Done"])
-
-        col13, col14 = st.columns(2)
-        compliance = col13.selectbox("Water Compliance", ["Compliant","Non-Compliant"])
+        
         submitted = col14.form_submit_button("Save Water Entry")
 
         if submitted:

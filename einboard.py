@@ -49,15 +49,25 @@ if "entries" not in st.session_state:
 if "renewable_entries" not in st.session_state:
     st.session_state.renewable_entries = pd.DataFrame(columns=["Source","Location","Month","Energy_kWh","CO2e_kg","Type"])
 
-# water / sdg placeholders
-if "sdg_engagement" not in st.session_state:
-    st.session_state.sdg_engagement = {i:0 for i in range(1,18)}
+# WATER DATA (updated schema per your request)
 if "water_data" not in st.session_state:
-    st.session_state.water_data = pd.DataFrame(columns=["Location","Source","Month","Quantity_m3","Cost_INR"])
+    st.session_state.water_data = pd.DataFrame(columns=[
+        "Month","Timestamp","Water Source","Withdrawal Volume (kL)","Water Used (kL)","Purpose of Use",
+        "Water-Stressed Area?","Rainwater Harvested (kL)","Water Recycled (kL)","% Water Recycled",
+        "Water Discharged (kL)","Discharge Destination","Treatment Before Discharge?","Treatment Level",
+        "STP/ETP Capacity (kL/day)","Monitoring Effluent","Water Risk Assessment","Water Compliance",
+        "Total Net Use (kL)"
+    ])
+
+# keep advanced water placeholder if you need later
 if "advanced_water_data" not in st.session_state:
     st.session_state.advanced_water_data = pd.DataFrame(columns=[
         "Location","Month","Rainwater_Harvested_m3","Water_Recycled_m3","Treatment_Before_Discharge","STP_ETP_Capacity_kL_day"
     ])
+
+# SDG placeholder
+if "sdg_engagement" not in st.session_state:
+    st.session_state.sdg_engagement = {i:0 for i in range(1,18)}
 
 # ---------------------------
 # Lookups & Factors
@@ -187,7 +197,6 @@ def calculate_emissions(scope, activity, sub_activity, specific_item, quantity, 
             else:
                 missing_factor = True
         else:
-            # fallback: if emission provided already (user may enter emissions in quantity field)
             missing_factor = True
 
     else:
@@ -266,7 +275,6 @@ def build_energy_rows_from_entries(df_entries: pd.DataFrame):
         if "Electricity" in sub or unit.lower() == "kwh":
             energy_kwh = qty
         else:
-            # map fuel to calorific value -> convert to kWh (MJ -> kWh: divide by 3.6)
             if "Diesel" in sub and "Diesel" in calorific_values:
                 energy_kwh = (qty * calorific_values["Diesel"]) / 3.6
             elif "Petrol" in sub and "Petrol" in calorific_values:
@@ -276,7 +284,6 @@ def build_energy_rows_from_entries(df_entries: pd.DataFrame):
             elif "Coal" in sub and "Coal" in calorific_values:
                 energy_kwh = (qty * calorific_values["Coal"]) / 3.6
             else:
-                # unknown fuel: leave energy_kwh = 0 but keep CO2e for KPIs
                 energy_kwh = 0.0
         typ = "Fossil" if co2e > 0 and not ("Renewable" in sub or "Biogas" in sub) else "Renewable"
         rows.append({
@@ -405,7 +412,6 @@ def render_ghg_dashboard():
         }
         st.session_state.entries = pd.concat([st.session_state.entries, pd.DataFrame([entry])], ignore_index=True)
         st.success("GHG entry saved and emissions calculated.")
-        # no rerun; energy KPIs will reflect the new entry on next render
 
     st.markdown("---")
     st.subheader("All GHG Entries")
@@ -500,98 +506,130 @@ def render_energy_dashboard():
         st.info("No energy data available yet.")
 
 # ---------------------------
-# Water Page
+# Water Dashboard (NEW)
 # ---------------------------
-elif selected == "Water":
-    st.title("💧 Water Dashboard")
+def render_water_dashboard():
+    st.title("Water")
 
-    # --- KPI Summary (same as Home)
-    total_withdrawal = water_df["Withdrawal Volume (kL)"].sum() if not water_df.empty else 0
-    total_used = water_df["Water Used (kL)"].sum() if not water_df.empty else 0
-    total_recycled = water_df["Water Recycled (kL)"].sum() if not water_df.empty else 0
-    total_discharge = water_df["Water Discharged (kL)"].sum() if not water_df.empty else 0
+    wd = st.session_state.water_data
 
-    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-    kpi1.metric("Total Withdrawal (kL)", f"{total_withdrawal:,.0f}")
-    kpi2.metric("Total Used (kL)", f"{total_used:,.0f}")
-    kpi3.metric("Total Recycled (kL)", f"{total_recycled:,.0f}")
-    kpi4.metric("Total Discharged (kL)", f"{total_discharge:,.0f}")
+    # --- KPI Summary
+    total_withdrawal = wd["Withdrawal Volume (kL)"].sum() if not wd.empty else 0.0
+    total_used = wd["Water Used (kL)"].sum() if not wd.empty else 0.0
+    total_recycled = wd["Water Recycled (kL)"].sum() if not wd.empty else 0.0
+    total_discharged = wd["Water Discharged (kL)"].sum() if not wd.empty else 0.0
+    total_net_use = wd["Total Net Use (kL)"].sum() if not wd.empty else 0.0
+    pct_recycled_overall = (total_recycled / total_used * 100) if total_used > 0 else 0.0
+
+    k1,k2,k3,k4,k5 = st.columns(5)
+    k1.markdown(f"<div class='kpi'><div class='kpi-value'>{total_withdrawal:,.0f}</div><div class='kpi-unit'>kL</div><div class='kpi-label'>Total Withdrawal</div></div>", unsafe_allow_html=True)
+    k2.markdown(f"<div class='kpi'><div class='kpi-value'>{total_used:,.0f}</div><div class='kpi-unit'>kL</div><div class='kpi-label'>Total Used</div></div>", unsafe_allow_html=True)
+    k3.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{ACCENT}'>{total_recycled:,.0f}</div><div class='kpi-unit'>kL</div><div class='kpi-label'>Total Recycled</div></div>", unsafe_allow_html=True)
+    k4.markdown(f"<div class='kpi'><div class='kpi-value'>{total_discharged:,.0f}</div><div class='kpi-unit'>kL</div><div class='kpi-label'>Total Discharged</div></div>", unsafe_allow_html=True)
+    k5.markdown(f"<div class='kpi'><div class='kpi-value'>{pct_recycled_overall:,.1f}%</div><div class='kpi-unit'>of Used</div><div class='kpi-label'>Overall % Recycled</div></div>", unsafe_allow_html=True)
 
     st.markdown("---")
 
     # --- Monthly Trends
-    if not water_df.empty:
-        fig = px.line(
-            water_df,
-            x="Timestamp",
-            y=["Withdrawal Volume (kL)", "Water Used (kL)", "Water Recycled (kL)", "Water Discharged (kL)"],
-            title="Monthly Water Trends",
-            markers=True
-        )
+    st.subheader("Monthly Trends")
+    if not wd.empty:
+        # aggregate by month
+        month_order = months
+        agg = wd.groupby("Month", as_index=False).agg({
+            "Withdrawal Volume (kL)":"sum",
+            "Water Used (kL)":"sum",
+            "Water Recycled (kL)":"sum",
+            "Water Discharged (kL)":"sum"
+        })
+        # keep fiscal month order
+        agg["Month"] = pd.Categorical(agg["Month"], categories=month_order, ordered=True)
+        agg = agg.sort_values("Month")
+
+        trend_long = agg.melt(id_vars="Month",
+                              value_vars=["Withdrawal Volume (kL)","Water Used (kL)","Water Recycled (kL)","Water Discharged (kL)"],
+                              var_name="Metric", value_name="kL")
+        fig = px.line(trend_long, x="Month", y="kL", color="Metric", markers=True, title="Water KPIs by Month")
         st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("No data available yet. Please add new entries below.")
+        st.info("No water data yet. Add entries below to see trends.")
 
     st.markdown("---")
 
-    # --- Input Form
-    st.subheader("➕ Add Water Data Entry")
+    # --- Input Form (Editable)
+    st.subheader("Add Water Data Entry")
     with st.form("water_form", clear_on_submit=True):
-        source = st.text_input("Water Source")
-        withdrawal = st.number_input("Withdrawal Volume in kL", min_value=0.0, step=1.0)
-        used = st.number_input("Water Used in kL", min_value=0.0, step=1.0)
-        purpose = st.text_input("Purpose of Use")
-        stressed = st.selectbox("Water-Stressed Area?", ["Yes", "No"])
-        rainwater = st.number_input("Rainwater Harvested in kL", min_value=0.0, step=1.0)
-        recycled = st.number_input("Water Recycled in kL", min_value=0.0, step=1.0)
-        discharged = st.number_input("Water Discharged in kL", min_value=0.0, step=1.0)
-        discharge_dest = st.text_input("Discharge Destination")
-        treated = st.selectbox("Treatment Before Discharge?", ["Yes", "No"])
-        treatment_level = st.text_input("Treatment Level")
-        stp_capacity = st.number_input("STP/ETP Capacity in kL/day", min_value=0.0, step=1.0)
-        monitoring = st.selectbox("Monitoring Effluent", ["Yes", "No"])
-        risk_assess = st.selectbox("Water Risk Assessment", ["Done", "Not Done"])
-        compliance = st.selectbox("Water Compliance", ["Compliant", "Non-Compliant"])
+        colA, colB, colC = st.columns(3)
+        month = colA.selectbox("Month", months, index=0)
+        source = colB.text_input("Water Source")
+        purpose = colC.text_input("Purpose of Use")
 
-        submitted = st.form_submit_button("Submit Entry")
+        col1, col2, col3, col4 = st.columns(4)
+        withdrawal = col1.number_input("Withdrawal Volume in kL", min_value=0.0, step=1.0)
+        used = col2.number_input("Water Used in kL", min_value=0.0, step=1.0)
+        rainwater = col3.number_input("Rainwater Harvested in kL", min_value=0.0, step=1.0)
+        recycled = col4.number_input("Water Recycled in kL", min_value=0.0, step=1.0)
+
+        col5, col6, col7, col8 = st.columns(4)
+        discharged = col5.number_input("Water Discharged in kL", min_value=0.0, step=1.0)
+        discharge_dest = col6.text_input("Discharge Destination")
+        stressed = col7.selectbox("Water-Stressed Area?", ["Yes","No"])
+        monitoring = col8.selectbox("Monitoring Effluent", ["Yes","No"])
+
+        col9, col10, col11, col12 = st.columns(4)
+        treated = col9.selectbox("Treatment Before Discharge?", ["Yes","No"])
+        treatment_level = col10.text_input("Treatment Level")
+        stp_capacity = col11.number_input("STP/ETP Capacity in kL/day", min_value=0.0, step=1.0)
+        risk_assess = col12.selectbox("Water Risk Assessment", ["Done","Not Done"])
+
+        col13, col14 = st.columns(2)
+        compliance = col13.selectbox("Water Compliance", ["Compliant","Non-Compliant"])
+        submitted = col14.form_submit_button("Save Water Entry")
 
         if submitted:
-            pct_recycled = (recycled / used * 100) if used > 0 else 0
+            pct_recycled = (recycled / used * 100.0) if used > 0 else 0.0
             net_use = used - recycled
-
-            new_entry = {
+            new_row = {
+                "Month": month,
                 "Timestamp": pd.Timestamp.now(),
                 "Water Source": source,
-                "Withdrawal Volume (kL)": withdrawal,
-                "Water Used (kL)": used,
+                "Withdrawal Volume (kL)": float(withdrawal),
+                "Water Used (kL)": float(used),
                 "Purpose of Use": purpose,
                 "Water-Stressed Area?": stressed,
-                "Rainwater Harvested (kL)": rainwater,
-                "Water Recycled (kL)": recycled,
-                "% Water Recycled": pct_recycled,
-                "Water Discharged (kL)": discharged,
+                "Rainwater Harvested (kL)": float(rainwater),
+                "Water Recycled (kL)": float(recycled),
+                "% Water Recycled": round(pct_recycled, 2),
+                "Water Discharged (kL)": float(discharged),
                 "Discharge Destination": discharge_dest,
                 "Treatment Before Discharge?": treated,
                 "Treatment Level": treatment_level,
-                "STP/ETP Capacity (kL/day)": stp_capacity,
+                "STP/ETP Capacity (kL/day)": float(stp_capacity),
                 "Monitoring Effluent": monitoring,
                 "Water Risk Assessment": risk_assess,
                 "Water Compliance": compliance,
-                "Total Net Use (kL)": net_use
+                "Total Net Use (kL)": float(net_use)
             }
-            water_df = pd.concat([water_df, pd.DataFrame([new_entry])], ignore_index=True)
-            save_data(water_df, "water_data.csv")
-            st.success("✅ New water entry added!")
+            st.session_state.water_data = pd.concat([st.session_state.water_data, pd.DataFrame([new_row])], ignore_index=True)
+            st.success("✅ Water entry saved.")
 
     st.markdown("---")
 
-    # --- All Entries
-    st.subheader("📋 All Water Data Entries")
-    if not water_df.empty:
-        st.dataframe(water_df.sort_values(by="Timestamp", ascending=False), use_container_width=True)
-    else:
+    # --- All Entries (Editable Table + Download)
+    st.subheader("📋 All Water Entries")
+    if st.session_state.water_data.empty:
         st.info("No entries available yet.")
+    else:
+        edited = st.data_editor(
+            st.session_state.water_data.sort_values("Timestamp", ascending=False),
+            use_container_width=True,
+            num_rows="dynamic",
+            key="water_table_editor"
+        )
+        # Save edits back
+        st.session_state.water_data = edited
 
+        csv = st.session_state.water_data.to_csv(index=False).encode("utf-8")
+        st.download_button("Download Water Data as CSV", csv, "water_data.csv", "text/csv")
 
 # ---------------------------
 # SDG Dashboard (simple)
@@ -655,6 +693,9 @@ elif st.session_state.page == "GHG":
 
 elif st.session_state.page == "Energy":
     render_energy_dashboard()
+
+elif st.session_state.page == "Water":
+    render_water_dashboard()
 
 elif st.session_state.page == "SDG":
     render_sdg_dashboard()

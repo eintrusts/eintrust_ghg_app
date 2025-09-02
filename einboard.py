@@ -408,7 +408,7 @@ def render_ghg_dashboard():
         # no rerun; energy KPIs will reflect the new entry on next render
 
     st.markdown("---")
-    st.subheader("All GHG Entries (manual)")
+    st.subheader("All GHG Entries")
     if st.session_state.entries.empty:
         st.info("No GHG entries recorded yet.")
     else:

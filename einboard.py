@@ -354,7 +354,7 @@ def render_ghg_dashboard():
     c4.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{ACCENT}'>{kpis['scope3']:,}</div><div class='kpi-unit'>kg CO₂e</div><div class='kpi-label'>Scope 3 Emissions</div></div>", unsafe_allow_html=True)
 
     st.markdown("---")
-    st.subheader("Add / Record GHG Entry (manual)")
+    st.subheader("Add GHG Entry")
 
     scope = st.selectbox("Select Scope", ["Scope 1","Scope 2","Scope 3"], index=0, key="ghg_scope")
 
@@ -404,7 +404,7 @@ def render_ghg_dashboard():
             "Emissions_kgCO2e": round(float(emissions),3)
         }
         st.session_state.entries = pd.concat([st.session_state.entries, pd.DataFrame([entry])], ignore_index=True)
-        st.success("GHG manual entry saved and emissions calculated (if factor available).")
+        st.success("GHG entry saved and emissions calculated.")
         # no rerun; energy KPIs will reflect the new entry on next render
 
     st.markdown("---")
@@ -423,7 +423,7 @@ def render_ghg_dashboard():
 # Energy Dashboard
 # ---------------------------
 def render_energy_dashboard():
-    st.title("⚡ Energy Dashboard")
+    st.title("Energy")
 
     # Load stored entries
     if "energy_entries" not in st.session_state:
@@ -449,7 +449,7 @@ def render_energy_dashboard():
     fossil_energy = all_energy.loc[all_energy["Type"] == "Fossil", "Energy_kWh"].sum()
     renewable_energy = all_energy.loc[all_energy["Type"] == "Renewable", "Energy_kWh"].sum()
 
-    st.markdown("### 🔑 Energy KPIs")
+    st.markdown("### Energy KPIs")
     col1, col2, col3 = st.columns(3)
     col1.metric("Total Energy (kWh)", f"{total_energy:,.0f}")
     col2.metric("Fossil Fuels (kWh)", f"{fossil_energy:,.0f}")
@@ -463,7 +463,7 @@ def render_energy_dashboard():
         st.plotly_chart(fig, use_container_width=True)
 
     # Data input form
-    st.markdown("### ➕ Add Energy Entry")
+    st.markdown("### Add Energy Entry")
     with st.form("energy_form", clear_on_submit=True):
         location = st.text_input("Location")
         fuel = st.text_input("Fuel Type")
@@ -561,20 +561,6 @@ elif st.session_state.page == "GHG":
 
 elif st.session_state.page == "Energy":
     render_energy_dashboard()
-
-elif st.session_state.page == "Water":
-    st.title("Water")
-    water_df = st.session_state.water_data.copy()
-    adv_df = st.session_state.advanced_water_data.copy()
-    total_water = water_df["Quantity_m3"].sum() if not water_df.empty else 0
-    total_cost = water_df["Cost_INR"].sum() if not water_df.empty else 0
-    recycled = adv_df["Water_Recycled_m3"].sum() if not adv_df.empty else 0
-    rain = adv_df["Rainwater_Harvested_m3"].sum() if not adv_df.empty else 0
-    st.metric("Total Water Used (m³)", f"{total_water:,.0f}")
-    st.metric("Estimated Cost (INR)", f"₹ {total_cost:,.0f}")
-    st.metric("Recycled Water (m³)", f"{recycled:,.0f}")
-    st.metric("Rainwater Harvested (m³)", f"{rain:,.0f}")
-    st.info("Detailed water entry UI available in previous versions; kept concise here.")
 
 elif st.session_state.page == "SDG":
     render_sdg_dashboard()

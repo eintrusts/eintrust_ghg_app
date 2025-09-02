@@ -151,7 +151,7 @@ scope_activities = {
         "1 Purchased goods & services": {
             "Raw Materials": ["Cement","Steel","Chemicals","Textile","Paper"],
             "Packaging": ["Cardboard","Plastics","Glass"],
-            "Office Supplies": ["Paper","Ink","Stationery"]
+            "Office Supplies": ["Stationery"]
         },
         "2 Capital goods": {
             "Machinery & Equipment": None,
@@ -425,7 +425,7 @@ def calculate_emissions(scope, activity, sub_activity, specific_item, quantity, 
 # GHG Dashboard (with full 15 categories UI)
 # ---------------------------
 def render_ghg_dashboard(include_data=True, show_chart=True):
-    st.subheader("GHG Emissions Data Entry (Scope 1, 2 & 3 - 15 categories included)")
+    st.subheader("GHG Emissions")
 
     if include_data:
         # Scope selection
@@ -472,7 +472,7 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
         quantity = st.number_input(f"Enter Quantity ({unit})", min_value=0.0, format="%.3f")
 
         # Add manual entry -> compute emissions immediately
-        if st.button("Add Manual Entry"):
+        if st.button("Add Entry"):
             emissions, missing = calculate_emissions(scope, activity, sub_activity, specific_item, quantity, unit)
             if missing:
                 st.warning("Emission factor for this item was not found in the default library; recorded emissions as 0. Provide a custom factor later or upload supplier-specific factor.")
@@ -489,34 +489,12 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
             st.success("GHG entry added and emissions calculated (if factor available).")
 
         # File upload
-        st.subheader("Optional: Upload CSV / Excel with columns: Scope,Activity,Sub-Activity,Specific Item,Quantity,Unit")
-        uploaded_file = st.file_uploader("Upload CSV/XLS/XLSX", type=["csv","xls","xlsx"])
-        if uploaded_file:
-            try:
-                if uploaded_file.name.endswith(".csv"):
-                    df_file = pd.read_csv(uploaded_file)
-                else:
-                    df_file = pd.read_excel(uploaded_file)
-                # validate
-                needed = {"Scope","Activity","Sub-Activity","Quantity","Unit"}
-                if not needed.issubset(set(df_file.columns)):
-                    st.error(f"Uploaded file must contain columns: {needed}")
-                else:
-                    # compute emissions per row
-                    df_file = df_file.fillna("")
-                    emissions_list = []
-                    for _, r in df_file.iterrows():
-                        emissions, missing = calculate_emissions(r["Scope"], r["Activity"], r["Sub-Activity"], r.get("Specific Item",""), r["Quantity"], r["Unit"])
-                        emissions_list.append(round(float(emissions),3))
-                    df_file["Emissions_kgCO2e"] = emissions_list
-                    st.session_state.entries = pd.concat([st.session_state.entries, df_file[st.session_state.entries.columns]], ignore_index=True)
-                    st.success("File uploaded and emissions computed (where factor was available).")
-            except Exception as e:
-                st.error(f"Error reading file: {e}")
-
+        st.subheader("Optional: File Upload")
+        uploaded_file = st.file_uploader("Upload CSV/XLS/XLSX/PDF", type=["csv","xls","xlsx","pdf"])
+        
     # Show entries and totals
     if not st.session_state.entries.empty:
-        st.subheader("All GHG Entries")
+        st.subheader("All GHG Emissions Entries")
         display_df = st.session_state.entries.copy()
         display_df["Quantity"] = display_df["Quantity"].apply(lambda x: f"{float(x):,.3f}")
         display_df["Emissions_kgCO2e"] = display_df["Emissions_kgCO2e"].apply(lambda x: f"{float(x):,.3f}")
@@ -612,7 +590,7 @@ def render_energy_dashboard(include_input=True, show_chart=True):
 
     # Add renewable entries (annual)
     if include_input:
-        st.subheader("Add Renewable Energy (Annual per location/source)")
+        st.subheader("Add Renewable Energy")
         num_entries = st.number_input("Number of renewable energy entries", min_value=1, max_value=10, value=1)
         renewable_list = []
         for i in range(int(num_entries)):
@@ -642,7 +620,6 @@ def render_energy_dashboard(include_input=True, show_chart=True):
 # ---------------------------
 def render_sdg_dashboard():
     st.title("Sustainable Development Goals (SDGs)")
-    st.subheader("Company Engagement by SDG")
     num_cols = 4
     rows = (len(SDG_LIST) + num_cols - 1) // num_cols
     idx = 0

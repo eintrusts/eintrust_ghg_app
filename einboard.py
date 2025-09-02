@@ -500,6 +500,100 @@ def render_energy_dashboard():
         st.info("No energy data available yet.")
 
 # ---------------------------
+# Water Page
+# ---------------------------
+elif selected == "Water":
+    st.title("💧 Water Dashboard")
+
+    # --- KPI Summary (same as Home)
+    total_withdrawal = water_df["Withdrawal Volume (kL)"].sum() if not water_df.empty else 0
+    total_used = water_df["Water Used (kL)"].sum() if not water_df.empty else 0
+    total_recycled = water_df["Water Recycled (kL)"].sum() if not water_df.empty else 0
+    total_discharge = water_df["Water Discharged (kL)"].sum() if not water_df.empty else 0
+
+    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+    kpi1.metric("Total Withdrawal (kL)", f"{total_withdrawal:,.0f}")
+    kpi2.metric("Total Used (kL)", f"{total_used:,.0f}")
+    kpi3.metric("Total Recycled (kL)", f"{total_recycled:,.0f}")
+    kpi4.metric("Total Discharged (kL)", f"{total_discharge:,.0f}")
+
+    st.markdown("---")
+
+    # --- Monthly Trends
+    if not water_df.empty:
+        fig = px.line(
+            water_df,
+            x="Timestamp",
+            y=["Withdrawal Volume (kL)", "Water Used (kL)", "Water Recycled (kL)", "Water Discharged (kL)"],
+            title="Monthly Water Trends",
+            markers=True
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No data available yet. Please add new entries below.")
+
+    st.markdown("---")
+
+    # --- Input Form
+    st.subheader("➕ Add Water Data Entry")
+    with st.form("water_form", clear_on_submit=True):
+        source = st.text_input("Water Source")
+        withdrawal = st.number_input("Withdrawal Volume in kL", min_value=0.0, step=1.0)
+        used = st.number_input("Water Used in kL", min_value=0.0, step=1.0)
+        purpose = st.text_input("Purpose of Use")
+        stressed = st.selectbox("Water-Stressed Area?", ["Yes", "No"])
+        rainwater = st.number_input("Rainwater Harvested in kL", min_value=0.0, step=1.0)
+        recycled = st.number_input("Water Recycled in kL", min_value=0.0, step=1.0)
+        discharged = st.number_input("Water Discharged in kL", min_value=0.0, step=1.0)
+        discharge_dest = st.text_input("Discharge Destination")
+        treated = st.selectbox("Treatment Before Discharge?", ["Yes", "No"])
+        treatment_level = st.text_input("Treatment Level")
+        stp_capacity = st.number_input("STP/ETP Capacity in kL/day", min_value=0.0, step=1.0)
+        monitoring = st.selectbox("Monitoring Effluent", ["Yes", "No"])
+        risk_assess = st.selectbox("Water Risk Assessment", ["Done", "Not Done"])
+        compliance = st.selectbox("Water Compliance", ["Compliant", "Non-Compliant"])
+
+        submitted = st.form_submit_button("Submit Entry")
+
+        if submitted:
+            pct_recycled = (recycled / used * 100) if used > 0 else 0
+            net_use = used - recycled
+
+            new_entry = {
+                "Timestamp": pd.Timestamp.now(),
+                "Water Source": source,
+                "Withdrawal Volume (kL)": withdrawal,
+                "Water Used (kL)": used,
+                "Purpose of Use": purpose,
+                "Water-Stressed Area?": stressed,
+                "Rainwater Harvested (kL)": rainwater,
+                "Water Recycled (kL)": recycled,
+                "% Water Recycled": pct_recycled,
+                "Water Discharged (kL)": discharged,
+                "Discharge Destination": discharge_dest,
+                "Treatment Before Discharge?": treated,
+                "Treatment Level": treatment_level,
+                "STP/ETP Capacity (kL/day)": stp_capacity,
+                "Monitoring Effluent": monitoring,
+                "Water Risk Assessment": risk_assess,
+                "Water Compliance": compliance,
+                "Total Net Use (kL)": net_use
+            }
+            water_df = pd.concat([water_df, pd.DataFrame([new_entry])], ignore_index=True)
+            save_data(water_df, "water_data.csv")
+            st.success("✅ New water entry added!")
+
+    st.markdown("---")
+
+    # --- All Entries
+    st.subheader("📋 All Water Data Entries")
+    if not water_df.empty:
+        st.dataframe(water_df.sort_values(by="Timestamp", ascending=False), use_container_width=True)
+    else:
+        st.info("No entries available yet.")
+
+
+# ---------------------------
 # SDG Dashboard (simple)
 # ---------------------------
 SDG_LIST = [

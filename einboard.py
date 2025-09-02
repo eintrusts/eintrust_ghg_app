@@ -423,147 +423,81 @@ def render_ghg_dashboard():
 # Energy Dashboard
 # ---------------------------
 def render_energy_dashboard():
-st.title("⚡ Energy Dashboard")
+    st.title("⚡ Energy Dashboard")
 
+    # Load stored entries
+    if "energy_entries" not in st.session_state:
+        st.session_state.energy_entries = pd.DataFrame(columns=[
+            "Location", "Fuel", "Quantity", "Energy_kWh", "CO2e_kg", "Type", "Month"
+        ])
 
-# Load stored entries
-if "energy_entries" not in st.session_state:
-st.session_state.energy_entries = pd.DataFrame(columns=[
-"Location", "Fuel", "Quantity", "Energy_kWh", "CO2e_kg", "Type", "Month"
-])
+    energy_from_entries = st.session_state.energy_entries
 
+    # Handle renew DataFrame safely
+    if "renew" in st.session_state:
+        renew = st.session_state.renew.copy()
+        expected_cols = ["Location", "Fuel", "Quantity", "Energy_kWh", "CO2e_kg", "Type", "Month"]
+        renew = renew.reindex(columns=expected_cols)
+    else:
+        renew = pd.DataFrame(columns=["Location", "Fuel", "Quantity", "Energy_kWh", "CO2e_kg", "Type", "Month"])
 
-energy_from_entries = st.session_state.energy_entries
+    # Combine datasets
+    all_energy = pd.concat([energy_from_entries, renew], ignore_index=True, sort=False)
 
+    # KPI Summary
+    total_energy = all_energy["Energy_kWh"].sum() if not all_energy.empty else 0
+    fossil_energy = all_energy.loc[all_energy["Type"] == "Fossil", "Energy_kWh"].sum()
+    renewable_energy = all_energy.loc[all_energy["Type"] == "Renewable", "Energy_kWh"].sum()
 
-# Handle renew DataFrame safely
-if "renew" in st.session_state:
-renew = st.session_state.renew.copy()
-expected_cols = ["Location", "Fuel", "Quantity", "Energy_kWh", "CO2e_kg", "Type", "Month"]
-renew = renew.reindex(columns=expected_cols)
-else:
-renew = pd.DataFrame(columns=["Location", "Fuel", "Quantity", "Energy_kWh", "CO2e_kg", "Type", "Month"])
-
-
-# Combine datasets
-all_energy = pd.concat([energy_from_entries, renew], ignore_index=True, sort=False)
-
-
-# KPI Summary
-total_energy = all_energy["Energy_kWh"].sum() if not all_energy.empty else 0
-fossil_energy = all_energy.loc[all_energy["Type"] == "Fossil", "Energy_kWh"].sum()
-renewable_energy = all_energy.loc[all_energy["Type"] == "Renewable", "Energy_kWh"].sum()
-
-
-st.markdown("### 🔑 Energy KPIs")
-col1, col2, col3 = st.columns(3)
-col1.metric("Total Energy (kWh)", f"{total_energy:,.0f}")
-col2.metric("Fossil Fuels (kWh)", f"{fossil_energy:,.0f}")
-col3.metric("Renewables (kWh)", f"{renewable_energy:,.0f}")
-
-
-# Monthly trend chart
-if not all_energy.empty:
-monthly_trend = all_energy.groupby(["Month", "Type"], as_index=False)["Energy_kWh"].sum()
-fig = px.bar(monthly_trend, x="Month", y="Energy_kWh", color="Type",
-barmode="group", title="Monthly Energy Consumption by Type")
-st.plotly_chart(fig, use_container_width=True)
-
-
-# Data input form
-st.markdown("### ➕ Add Energy Entry")
-with st.form("energy_form", clear_on_submit=True):
-location = st.text_input("Location")
-fuel = st.text_input("Fuel Type")
-quantity = st.number_input("Quantity (liters/kg/m3)", min_value=0.0, step=0.1)
-energy_kwh = st.number_input("Energy (kWh)", min_value=0.0, step=0.1)
-co2e = st.number_input("CO2e (kg)", min_value=0.0, step=0.1)
-energy_type = st.selectbox("Type", ["Fossil", "Renewable"])
-month = st.selectbox("Month", [
-"January", "February", "March", "April", "May", "June",
-"July", "August", "September", "October", "November", "December"
-])
-submitted = st.form_submit_button("Add Entry")
-
-
-if submitted:
-new_entry = pd.DataFrame([{
-"Location": location,
-"Fuel": fuel,
-"Quantity": quantity,
-"Energy_kWh": energy_kwh,
-"CO2e_kg": co2e,
-"Type": energy_type,
-"Month": month
-}])
-st.session_state.energy_entries = pd.concat(
-[st.session_state.energy_entries, new_entry], ignore_index=True
-)
-st.success("Energy entry added successfully!")
-
-
-# Show all entries
-st.markdown("### 📋 All Energy Entries")
-if not all_energy.empty:
-st.dataframe(all_energy)
-else:
-st.info("No energy data available yet.")
-
-    # KPIs
-    total_energy_kwh = all_energy["Energy_kWh"].astype(float).sum() if not all_energy.empty else 0.0
-    total_co2e = all_energy["CO2e_kg"].astype(float).sum() if not all_energy.empty else 0.0
-    fossil_energy = all_energy[all_energy["Type"]=="Fossil"]["Energy_kWh"].astype(float).sum() if not all_energy.empty else 0.0
-    renewable_energy = all_energy[all_energy["Type"]=="Renewable"]["Energy_kWh"].astype(float).sum() if not all_energy.empty else 0.0
-
-    c1,c2,c3 = st.columns(3)
-    c1.markdown(f"<div class='kpi'><div class='kpi-value'>{int(total_energy_kwh):,}</div><div class='kpi-unit'>kWh</div><div class='kpi-label'>Total Energy (estimated)</div></div>", unsafe_allow_html=True)
-    c2.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{ACCENT2}'>{int(fossil_energy):,}</div><div class='kpi-unit'>kWh</div><div class='kpi-label'>Fossil Energy</div></div>", unsafe_allow_html=True)
-    c3.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{ACCENT}'>{int(renewable_energy):,}</div><div class='kpi-unit'>kWh</div><div class='kpi-label'>Renewable Energy</div></div>", unsafe_allow_html=True)
-
-    st.markdown(f"**Estimated CO₂e from energy rows:** {total_co2e:,.2f} kg CO₂e (this is derived from manual GHG entries and renewables' CO2e).")
+    st.markdown("### 🔑 Energy KPIs")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Energy (kWh)", f"{total_energy:,.0f}")
+    col2.metric("Fossil Fuels (kWh)", f"{fossil_energy:,.0f}")
+    col3.metric("Renewables (kWh)", f"{renewable_energy:,.0f}")
 
     # Monthly trend chart
     if not all_energy.empty:
-        monthly_trend = all_energy.groupby(["Month","Type"])["Energy_kWh"].sum().reset_index()
-        st.subheader("Monthly Energy Consumption (kWh)")
-        fig = px.bar(monthly_trend, x="Month", y="Energy_kWh", color="Type", barmode="stack", color_discrete_map=ENERGY_COLORS)
+        monthly_trend = all_energy.groupby(["Month", "Type"], as_index=False)["Energy_kWh"].sum()
+        fig = px.bar(monthly_trend, x="Month", y="Energy_kWh", color="Type",
+                     barmode="group", title="Monthly Energy Consumption by Type")
         st.plotly_chart(fig, use_container_width=True)
 
-    # Add renewable entries
-    st.markdown("---")
-    st.subheader("Add Renewable Energy (annual -> monthly breakdown)")
-    with st.form("renewable_form", clear_on_submit=True):
-        source = st.selectbox("Source", ["Solar","Wind","Biogas","Purchased Green Energy"])
+    # Data input form
+    st.markdown("### ➕ Add Energy Entry")
+    with st.form("energy_form", clear_on_submit=True):
         location = st.text_input("Location")
-        annual_energy = st.number_input("Annual Energy (kWh)", min_value=0.0, format="%.2f")
-        submitted = st.form_submit_button("Add Renewable")
-        if submitted:
-            monthly_energy = annual_energy/12.0 if annual_energy else 0.0
-            rows = []
-            for m in months:
-                rows.append({
-                    "Source": source,
-                    "Location": location,
-                    "Month": m,
-                    "Energy_kWh": monthly_energy,
-                    "CO2e_kg": round(monthly_energy * emission_factors.get("Electricity",0) * 0.0,3),  # assume zero grid CO2e for "green" (user can edit)
-                    "Type": "Renewable"
-                })
-            st.session_state.renewable_entries = pd.concat([st.session_state.renewable_entries, pd.DataFrame(rows)], ignore_index=True)
-            st.success(f"Added renewable energy (monthly breakdown). {len(rows)} rows appended.")
+        fuel = st.text_input("Fuel Type")
+        quantity = st.number_input("Quantity (liters/kg/m3)", min_value=0.0, step=0.1)
+        energy_kwh = st.number_input("Energy (kWh)", min_value=0.0, step=0.1)
+        co2e = st.number_input("CO2e (kg)", min_value=0.0, step=0.1)
+        energy_type = st.selectbox("Type", ["Fossil", "Renewable"])
+        month = st.selectbox("Month", [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ])
+        submitted = st.form_submit_button("Add Entry")
 
-    st.markdown("---")
-    st.subheader("Energy Data (combined)")
-    if all_energy.empty:
-        st.info("No energy data available. Add GHG entries (Scope 1/2) or renewable entries.")
+        if submitted:
+            new_entry = pd.DataFrame([{
+                "Location": location,
+                "Fuel": fuel,
+                "Quantity": quantity,
+                "Energy_kWh": energy_kwh,
+                "CO2e_kg": co2e,
+                "Type": energy_type,
+                "Month": month
+            }])
+            st.session_state.energy_entries = pd.concat(
+                [st.session_state.energy_entries, new_entry], ignore_index=True
+            )
+            st.success("Energy entry added successfully!")
+
+    # Show all entries
+    st.markdown("### 📋 All Energy Entries")
+    if not all_energy.empty:
+        st.dataframe(all_energy)
     else:
-        ego = all_energy.copy()
-        ego["Energy_kWh"] = ego["Energy_kWh"].apply(lambda x: float(x or 0.0))
-        ego["CO2e_kg"] = ego["CO2e_kg"].apply(lambda x: float(x or 0.0))
-        ego_display = ego[["Location","Fuel","Quantity","Energy_kWh","CO2e_kg","Type","Month"]].fillna("")
-        ego_display["Energy_kWh"] = ego_display["Energy_kWh"].apply(lambda x: f"{float(x):,.2f}")
-        ego_display["CO2e_kg"] = ego_display["CO2e_kg"].apply(lambda x: f"{float(x):,.2f}")
-        st.dataframe(ego_display, use_container_width=True)
+        st.info("No energy data available yet.")
 
 # ---------------------------
 # SDG Dashboard (simple)

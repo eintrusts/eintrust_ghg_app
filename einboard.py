@@ -423,20 +423,91 @@ def render_ghg_dashboard():
 # Energy Dashboard
 # ---------------------------
 def render_energy_dashboard():
-    st.title("Energy")
-    st.markdown("Energy KPIs include energy derived from manual Scope1/Scope2 GHG entries plus any renewable entries you've added.")
+st.title("⚡ Energy Dashboard")
 
-    # Build energy dataset from manual entries (scope1/2) and renewables
-    energy_from_entries = build_energy_rows_from_entries(st.session_state.entries)
-    renew = st.session_state.renewable_entries.copy() if not st.session_state.renewable_entries.empty else pd.DataFrame(columns=["Source","Location","Month","Energy_kWh","CO2e_kg","Type"])
-    # Normalize renewables to same column names
-    if not renew.empty:
-        renew = renew.rename(columns={"Source":"Fuel","Location":"Location","Energy_kWh":"Energy_kWh","CO2e_kg":"CO2e_kg","Type":"Type","Month":"Month"})
-        renew["Quantity"] = 0.0
-    # union
-    all_energy = pd.concat([energy_from_entries, renew[["Location","Fuel","Quantity","Energy_kWh","CO2e_kg","Type","Month"]]], ignore_index=True, sort=False)
-    if not all_energy.empty and "Month" in all_energy:
-        all_energy["Month"] = pd.Categorical(all_energy["Month"], categories=months, ordered=True)
+
+# Load stored entries
+if "energy_entries" not in st.session_state:
+st.session_state.energy_entries = pd.DataFrame(columns=[
+"Location", "Fuel", "Quantity", "Energy_kWh", "CO2e_kg", "Type", "Month"
+])
+
+
+energy_from_entries = st.session_state.energy_entries
+
+
+# Handle renew DataFrame safely
+if "renew" in st.session_state:
+renew = st.session_state.renew.copy()
+expected_cols = ["Location", "Fuel", "Quantity", "Energy_kWh", "CO2e_kg", "Type", "Month"]
+renew = renew.reindex(columns=expected_cols)
+else:
+renew = pd.DataFrame(columns=["Location", "Fuel", "Quantity", "Energy_kWh", "CO2e_kg", "Type", "Month"])
+
+
+# Combine datasets
+all_energy = pd.concat([energy_from_entries, renew], ignore_index=True, sort=False)
+
+
+# KPI Summary
+total_energy = all_energy["Energy_kWh"].sum() if not all_energy.empty else 0
+fossil_energy = all_energy.loc[all_energy["Type"] == "Fossil", "Energy_kWh"].sum()
+renewable_energy = all_energy.loc[all_energy["Type"] == "Renewable", "Energy_kWh"].sum()
+
+
+st.markdown("### 🔑 Energy KPIs")
+col1, col2, col3 = st.columns(3)
+col1.metric("Total Energy (kWh)", f"{total_energy:,.0f}")
+col2.metric("Fossil Fuels (kWh)", f"{fossil_energy:,.0f}")
+col3.metric("Renewables (kWh)", f"{renewable_energy:,.0f}")
+
+
+# Monthly trend chart
+if not all_energy.empty:
+monthly_trend = all_energy.groupby(["Month", "Type"], as_index=False)["Energy_kWh"].sum()
+fig = px.bar(monthly_trend, x="Month", y="Energy_kWh", color="Type",
+barmode="group", title="Monthly Energy Consumption by Type")
+st.plotly_chart(fig, use_container_width=True)
+
+
+# Data input form
+st.markdown("### ➕ Add Energy Entry")
+with st.form("energy_form", clear_on_submit=True):
+location = st.text_input("Location")
+fuel = st.text_input("Fuel Type")
+quantity = st.number_input("Quantity (liters/kg/m3)", min_value=0.0, step=0.1)
+energy_kwh = st.number_input("Energy (kWh)", min_value=0.0, step=0.1)
+co2e = st.number_input("CO2e (kg)", min_value=0.0, step=0.1)
+energy_type = st.selectbox("Type", ["Fossil", "Renewable"])
+month = st.selectbox("Month", [
+"January", "February", "March", "April", "May", "June",
+"July", "August", "September", "October", "November", "December"
+])
+submitted = st.form_submit_button("Add Entry")
+
+
+if submitted:
+new_entry = pd.DataFrame([{
+"Location": location,
+"Fuel": fuel,
+"Quantity": quantity,
+"Energy_kWh": energy_kwh,
+"CO2e_kg": co2e,
+"Type": energy_type,
+"Month": month
+}])
+st.session_state.energy_entries = pd.concat(
+[st.session_state.energy_entries, new_entry], ignore_index=True
+)
+st.success("Energy entry added successfully!")
+
+
+# Show all entries
+st.markdown("### 📋 All Energy Entries")
+if not all_energy.empty:
+st.dataframe(all_energy)
+else:
+st.info("No energy data available yet.")
 
     # KPIs
     total_energy_kwh = all_energy["Energy_kWh"].astype(float).sum() if not all_energy.empty else 0.0

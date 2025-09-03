@@ -425,7 +425,7 @@ def calculate_emissions(scope, activity, sub_activity, specific_item, quantity, 
 # GHG Dashboard
 # ---------------------------
 def render_ghg_dashboard(include_data=True, show_chart=True):
-    st.subheader("GHG Emissions"
+    st.subheader("GHG Emissions")
 
     if include_data:
         # Scope selection

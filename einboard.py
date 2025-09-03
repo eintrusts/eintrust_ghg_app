@@ -422,10 +422,10 @@ def calculate_emissions(scope, activity, sub_activity, specific_item, quantity, 
     return emissions, missing_factor
 
 # ---------------------------
-# GHG Dashboard (with full 15 categories UI)
+# GHG Dashboard
 # ---------------------------
 def render_ghg_dashboard(include_data=True, show_chart=True):
-    st.subheader("GHG Emissions Data Entry (Scope 1, 2 & 3 - 15 categories included)")
+    st.subheader("GHG Emissions"
 
     if include_data:
         # Scope selection
@@ -472,7 +472,7 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
         quantity = st.number_input(f"Enter Quantity ({unit})", min_value=0.0, format="%.3f")
 
         # Add manual entry -> compute emissions immediately
-        if st.button("Add Manual Entry"):
+        if st.button("Add Entry"):
             emissions, missing = calculate_emissions(scope, activity, sub_activity, specific_item, quantity, unit)
             if missing:
                 st.warning("Emission factor for this item was not found in the default library; recorded emissions as 0. Provide a custom factor later or upload supplier-specific factor.")
@@ -489,8 +489,8 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
             st.success("GHG entry added and emissions calculated (if factor available).")
 
         # File upload
-        st.subheader("Optional: Upload CSV / Excel with columns: Scope,Activity,Sub-Activity,Specific Item,Quantity,Unit")
-        uploaded_file = st.file_uploader("Upload CSV/XLS/XLSX", type=["csv","xls","xlsx"])
+        st.subheader("Optional: Upload File")
+        uploaded_file = st.file_uploader("Upload CSV/XLS/XLSX/PDF", type=["csv","xls","xlsx","pdf"])
         if uploaded_file:
             try:
                 if uploaded_file.name.endswith(".csv"):
@@ -525,7 +525,7 @@ def render_ghg_dashboard(include_data=True, show_chart=True):
         st.download_button("Download GHG Entries as CSV", csv, "ghg_entries_with_emissions.csv", "text/csv")
 
 # ---------------------------
-# Energy Dashboard (no dummy data; uses entries)
+# Energy Dashboard
 # ---------------------------
 def render_energy_dashboard(include_input=True, show_chart=True):
     st.subheader("Energy")
@@ -612,7 +612,7 @@ def render_energy_dashboard(include_input=True, show_chart=True):
 
     # Add renewable entries (annual)
     if include_input:
-        st.subheader("Add Renewable Energy (Annual per location/source)")
+        st.subheader("Add Renewable Energy")
         num_entries = st.number_input("Number of renewable energy entries", min_value=1, max_value=10, value=1)
         renewable_list = []
         for i in range(int(num_entries)):
@@ -638,11 +638,10 @@ def render_energy_dashboard(include_input=True, show_chart=True):
             st.experimental_rerun()
 
 # ---------------------------
-# SDG Dashboard (unchanged)
+# SDG Dashboard
 # ---------------------------
 def render_sdg_dashboard():
     st.title("Sustainable Development Goals (SDGs)")
-    st.subheader("Company Engagement by SDG")
     num_cols = 4
     rows = (len(SDG_LIST) + num_cols - 1) // num_cols
     idx = 0
@@ -670,7 +669,7 @@ def render_sdg_dashboard():
             idx += 1
 
 # ---------------------------
-# Render Pages (keep other pages as-is)
+# Render Pages
 # ---------------------------
 if st.session_state.page == "Home":
     st.title("EinTrust Sustainability Dashboard")

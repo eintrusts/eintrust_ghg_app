@@ -350,80 +350,71 @@ with st.sidebar:
 # GHG Dashboard
 # ---------------------------
 def render_ghg_dashboard():
-    st.title("GHG Emissions")
+    st.title("🌍 GHG Emissions Dashboard")
 
-    # top KPIs from manual entries
-    kpis = ghg_kpis(st.session_state.entries)
-    c1,c2,c3,c4 = st.columns(4)
-    c1.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{TEXT}'>{kpis['total']:,}</div><div class='kpi-unit'>kg CO₂e</div><div class='kpi-label'>Total Emissions (All Scopes)</div></div>", unsafe_allow_html=True)
-    c2.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{ACCENT2}'>{kpis['scope1']:,}</div><div class='kpi-unit'>kg CO₂e</div><div class='kpi-label'>Scope 1 Emissions</div></div>", unsafe_allow_html=True)
-    c3.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{ACCENT2}'>{kpis['scope2']:,}</div><div class='kpi-unit'>kg CO₂e</div><div class='kpi-label'>Scope 2 Emissions</div></div>", unsafe_allow_html=True)
-    c4.markdown(f"<div class='kpi'><div class='kpi-value' style='color:{ACCENT}'>{kpis['scope3']:,}</div><div class='kpi-unit'>kg CO₂e</div><div class='kpi-label'>Scope 3 Emissions</div></div>", unsafe_allow_html=True)
+    # Initialize session state for GHG data
+    if "ghg_data" not in st.session_state:
+        st.session_state.ghg_data = pd.DataFrame(columns=["Scope", "Activity", "Emissions (tCO2e)", "Month", "Timestamp"])
+
+    # ---------------------------
+    # KPI Summary
+    # ---------------------------
+    total_emissions = st.session_state.ghg_data["Emissions (tCO2e)"].sum() if not st.session_state.ghg_data.empty else 0
+    scope1 = st.session_state.ghg_data.loc[st.session_state.ghg_data["Scope"] == "Scope 1", "Emissions (tCO2e)"].sum()
+    scope2 = st.session_state.ghg_data.loc[st.session_state.ghg_data["Scope"] == "Scope 2", "Emissions (tCO2e)"].sum()
+    scope3 = st.session_state.ghg_data.loc[st.session_state.ghg_data["Scope"] == "Scope 3", "Emissions (tCO2e)"].sum()
+
+    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+    kpi1.metric("Total Emissions", f"{total_emissions:.2f} tCO2e")
+    kpi2.metric("Scope 1", f"{scope1:.2f} tCO2e")
+    kpi3.metric("Scope 2", f"{scope2:.2f} tCO2e")
+    kpi4.metric("Scope 3", f"{scope3:.2f} tCO2e")
 
     st.markdown("---")
+
+    # ---------------------------
+    # Monthly Trends
+    # ---------------------------
+    if not st.session_state.ghg_data.empty:
+        trend_data = st.session_state.ghg_data.groupby(["Month", "Scope"], as_index=False)["Emissions (tCO2e)"].sum()
+        fig = px.bar(trend_data, x="Month", y="Emissions (tCO2e)", color="Scope",
+                     barmode="group", title="Monthly GHG Emissions by Scope")
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("---")
+
+    # ---------------------------
+    # Input Form
+    # ---------------------------
     st.subheader("Add GHG Entry")
+    with st.form("ghg_form", clear_on_submit=True):
+        scope = st.selectbox("Select Scope", ["Scope 1", "Scope 2", "Scope 3"])
+        activity = st.text_input("Activity")
+        emissions = st.number_input("Emissions (tCO2e)", min_value=0.0, step=0.01)
+        month = st.selectbox("Month", pd.date_range("2023-01-01", periods=12, freq="M").strftime("%b %Y"))
+        submitted = st.form_submit_button("Add Entry")
 
-    scope = st.selectbox("Select Scope", ["Scope 1","Scope 2","Scope 3"], index=0, key="ghg_scope")
-
-    if scope != "Scope 3":
-        activity = st.selectbox("Select Activity", list(scope_activities[scope].keys()), key="ghg_activity")
-        sub_options = scope_activities[scope][activity]
-        sub_activity = st.selectbox("Select Sub-Activity", list(sub_options.keys()), key="ghg_sub")
-        st.info(sub_options[sub_activity])
-        specific_item = st.text_input("Specific Item / Location (optional)", value="", key="ghg_specific")
-    else:
-        activity = st.selectbox("Select Scope 3 Category", list(scope_activities["Scope 3"].keys()), key="ghg_activity3")
-        sub_dict = scope_activities["Scope 3"][activity]
-        sub_activity = st.selectbox("Select Sub-Category", list(sub_dict.keys()), key="ghg_sub3")
-        specific_item = ""
-        if isinstance(sub_dict[sub_activity], list):
-            specific_item = st.selectbox("Select Specific Item", sub_dict[sub_activity], key="ghg_specific3")
-        else:
-            specific_item = st.text_input("Specific Item (optional)", value="", key="ghg_specific3_txt")
-
-    # Unit autofill heuristics
-    if scope != "Scope 3":
-        unit_default = units_dict.get(sub_activity, "")
-    else:
-        if sub_activity in ["Air Travel"]:
-            unit_default = "Number of flights"
-        elif sub_activity in ["Train Travel","Taxi/Car Rental","Cars/Vans","Two-Wheelers","Public Transport","Incoming Transport","Third-party Logistics","Distribution to Customers","Retail/Distributor Transport"]:
-            unit_default = "km traveled"
-        elif sub_activity in ["Landfill","Recycling","Composting"]:
-            unit_default = "kg"
-        else:
-            unit_default = "kg / Tonnes / kWh"
-
-    unit = st.text_input("Unit", value=unit_default, key="ghg_unit")
-    quantity = st.number_input(f"Quantity ({unit})", min_value=0.0, format="%.3f", key="ghg_qty")
-
-    if st.button("Add Entry", key="add_entry_button"):
-        emissions, missing = calculate_emissions(scope, activity, sub_activity, specific_item, quantity, unit)
-        if missing:
-            st.warning("Emission factor not found in library — emissions recorded as 0. You can later edit or provide a custom factor.")
-        entry = {
-            "Scope": scope,
-            "Activity": activity,
-            "Sub-Activity": sub_activity,
-            "Specific Item": specific_item,
-            "Quantity": quantity,
-            "Unit": unit,
-            "Emissions_kgCO2e": round(float(emissions),3)
-        }
-        st.session_state.entries = pd.concat([st.session_state.entries, pd.DataFrame([entry])], ignore_index=True)
-        st.success("GHG entry saved and emissions calculated.")
+        if submitted:
+            new_entry = pd.DataFrame({
+                "Scope": [scope],
+                "Activity": [activity],
+                "Emissions (tCO2e)": [emissions],
+                "Month": [month],
+                "Timestamp": [pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")]
+            })
+            st.session_state.ghg_data = pd.concat([st.session_state.ghg_data, new_entry], ignore_index=True)
+            st.success("✅ Entry added successfully!")
 
     st.markdown("---")
+
+    # ---------------------------
+    # All Entries with Timestamp
+    # ---------------------------
     st.subheader("All GHG Entries")
-    if st.session_state.entries.empty:
-        st.info("No GHG entries recorded yet.")
+    if not st.session_state.ghg_data.empty:
+        st.dataframe(st.session_state.ghg_data)
     else:
-        df_display = st.session_state.entries.copy()
-        df_display["Quantity"] = df_display["Quantity"].apply(lambda x: f"{float(x):,.3f}")
-        df_display["Emissions_kgCO2e"] = df_display["Emissions_kgCO2e"].apply(lambda x: f"{float(x):,.3f}")
-        st.dataframe(df_display, use_container_width=True)
-        csv = st.session_state.entries.to_csv(index=False).encode('utf-8')
-        st.download_button("Download GHG Entries as CSV", csv, "ghg_entries_with_emissions.csv", "text/csv")
+        st.info("No GHG data added yet.")
 
 # ---------------------------
 # Energy Dashboard

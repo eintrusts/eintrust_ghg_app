@@ -702,35 +702,33 @@ from datetime import datetime
 
 st.set_page_config(page_title="Water Dashboard", layout="wide")
 
-st.title("Water Consumption Dashboard")
+st.title("💧 Water Consumption Dashboard")
 
-# Initialize session state
+# ----- SESSION STATE INITIALIZATION -----
 if 'water_data' not in st.session_state:
     st.session_state['water_data'] = []
 
-
 # ----- FILTER SELECTION -----
-st.subheader("Water Consumption Trend & KPIs")
+st.subheader("Filter Water Data")
 filter_option = st.selectbox("Select Data to Display:", ["All Entries", "Annual Only", "Monthly Only"])
 
-# Filter data
-if st.session_state['water_data']:
+# Prepare filtered dataframe
+if len(st.session_state['water_data']) > 0:
     df_all = pd.DataFrame(st.session_state['water_data'])
-    
     if filter_option == "Annual Only":
-        df_plot = df_all[df_all['frequency']=="Annual"]
+        df_plot = df_all[df_all['frequency'] == "Annual"]
     elif filter_option == "Monthly Only":
-        df_plot = df_all[df_all['frequency']=="Monthly"]
+        df_plot = df_all[df_all['frequency'] == "Monthly"]
     else:
         df_plot = df_all.copy()
 else:
     df_all = pd.DataFrame()
     df_plot = pd.DataFrame()
 
-# ----- KPI BLOCKS WITH COLOR -----
+# ----- KPI BLOCKS -----
 st.subheader("Key Performance Indicators (KPIs)")
 
-def kpi_card(title, value, color):
+def kpi_card(title, value, color, tooltip):
     st.markdown(
         f"""
         <div style="
@@ -742,7 +740,8 @@ def kpi_card(title, value, color):
             font-size:22px;
             font-weight:bold;
             box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
-            ">
+            margin-bottom:10px;
+            " title="{tooltip}">
             {title}<br><span style='font-size:28px'>{value}</span>
         </div>
         """,
@@ -753,22 +752,34 @@ if not df_plot.empty:
     total_water = df_plot['water_consumption'].sum()
     avg_water = df_plot['water_consumption'].mean()
     max_water = df_plot['water_consumption'].max()
+    
+    # Count entries
+    total_entries = len(df_plot)
+    annual_entries = len(df_plot[df_plot['frequency']=='Annual'])
+    monthly_entries = len(df_plot[df_plot['frequency']=='Monthly'])
 else:
     total_water = 0
     avg_water = 0
     max_water = 0
+    total_entries = 0
+    annual_entries = 0
+    monthly_entries = 0
+
+# Highlight peak if unusually high (>1.5× avg)
+peak_color = "#d62728" if max_water > 1.5*avg_water and avg_water>0 else "#2ca02c"
 
 kpi_cols = st.columns(3)
 with kpi_cols[0]:
-    kpi_card("Total Water (m³)", f"{total_water:.2f}", "#1f77b4")  # Blue
+    kpi_card("Total Water (m³)", f"{total_water:.2f}", "#1f77b4", f"Total {total_entries} entries")
 with kpi_cols[1]:
-    kpi_card("Average Consumption (m³)", f"{avg_water:.2f}", "#ff7f0e")  # Orange
+    kpi_card("Average Consumption (m³)", f"{avg_water:.2f}", "#ff7f0e", f"Annual: {annual_entries}, Monthly: {monthly_entries}")
 with kpi_cols[2]:
-    kpi_card("Peak Consumption (m³)", f"{max_water:.2f}", "#2ca02c")  # Green
+    kpi_card("Peak Consumption (m³)", f"{max_water:.2f}", peak_color, "Peak value of all entries")
 
 st.markdown("---")
 
-# ----- INTERACTIVE CHART -----
+# ----- CHART -----
+st.subheader("Water Consumption Trend")
 if not df_plot.empty:
     df_plot['label'] = df_plot.apply(
         lambda x: x['timestamp'] if x['frequency']=='Annual' else f"{x['month']} ({x['timestamp'][:10]})",
@@ -783,7 +794,20 @@ if not df_plot.empty:
         title="Water Consumption Over Time",
         labels={"label":"Entry (Date / Month)", "water_consumption":"Water Consumption (m³)"}
     )
+    
+    # Highlight peaks in chart
+    peak_index = df_plot['water_consumption'].idxmax() if not df_plot.empty else None
     fig.update_traces(line=dict(color="#00BFFF", width=3), marker=dict(size=8))
+    if peak_index is not None:
+        fig.add_scatter(
+            x=[df_plot.loc[peak_index, 'label']],
+            y=[df_plot.loc[peak_index, 'water_consumption']],
+            mode='markers+text',
+            marker=dict(color='red', size=12),
+            text=["Peak!"],
+            textposition="top center",
+            showlegend=False
+        )
     fig.update_layout(xaxis_tickangle=-45, template="plotly_white")
     st.plotly_chart(fig, use_container_width=True)
 else:
@@ -793,17 +817,15 @@ st.markdown("---")
 
 # ----- DATA INPUT FORM -----
 st.subheader("Add Water Data Entry")
-
 with st.form("water_input_form"):
     frequency = st.selectbox("Select Frequency", ["Annual", "Monthly"])
     
+    month = None
     if frequency == "Monthly":
         month = st.selectbox("Select Month", [
             "January", "February", "March", "April", "May", "June",
             "July", "August", "September", "October", "November", "December"
         ])
-    else:
-        month = None
     
     water_consumption = st.number_input("Enter Water Consumption (m³)", min_value=0.0, step=0.1)
     
@@ -818,6 +840,7 @@ with st.form("water_input_form"):
         }
         st.session_state['water_data'].append(entry)
         st.success("Water data entry added successfully!")
+        st.experimental_rerun()  # Refresh to update KPIs and chart automatically
 
 st.markdown("---")
 

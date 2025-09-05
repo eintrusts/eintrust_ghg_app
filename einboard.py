@@ -1,3 +1,5 @@
+You said:
+
 # app.py
 # Complete rewritten app with full Scope-3 15 categories + emissions calc
 # (GHG and Energy pages are preserved exactly as provided)
@@ -691,145 +693,40 @@ def render_sdg_dashboard():
             idx += 1
 
 # ---------------------------
-# Water Dashboard
+# Additional Pages (Environment / Social / Governance Inputs)
+# These pages add data to session_state dataframes and session_state keys
 # ---------------------------
 
-import streamlit as st
-import pandas as pd
-from datetime import datetime
-import time
-
+# Water page already has simple display in original code; add inputs here
 def render_water_input_page():
-    # --- Initialize session state ---
-    columns = [
-        "Timestamp", "SME Name", "Water Source", "Water Consumption (KL)",
-        "Water Recycled (KL)", "Water Lost (KL)", "Data Type", "Month"
-    ]
-    
-    if 'water_data' not in st.session_state:
-        st.session_state['water_data'] = pd.DataFrame(columns=columns)
-    else:
-        for col in columns:
-            if col not in st.session_state['water_data'].columns:
-                st.session_state['water_data'][col] = ""
-
-    df = st.session_state['water_data']
-
-    # --- KPIs Section ---
-    st.title("Water Management Dashboard")
-    st.subheader("Key Performance Indicators (KPIs)")
-
-    colors = ["#4CAF50", "#2196F3", "#FF9800"]
-    titles = ["Total Water Consumed (KL)", "Total Water Recycled (KL)", "Total Water Lost (KL)"]
-
-    if not df.empty:
-        total_consumed = df["Water Consumption (KL)"].sum()
-        total_recycled = df["Water Recycled (KL)"].sum()
-        total_lost = df["Water Lost (KL)"].sum()
-
-        targets = [total_consumed, total_recycled, total_lost]
-
-        col1, col2, col3 = st.columns(3)
-        kpi_containers = [col1.empty(), col2.empty(), col3.empty()]
-
-        steps = 50
-        current_values = [0, 0, 0]
-        for i in range(steps):
-            for idx in range(3):
-                current_values[idx] += targets[idx]/steps
-                if current_values[idx] > targets[idx]:
-                    current_values[idx] = targets[idx]
-                kpi_containers[idx].markdown(f"""
-                    <div style="background-color:{colors[idx]}; padding:20px; border-radius:10px; text-align:center;">
-                    <h4 style="color:white">{titles[idx]}</h4>
-                    <h2 style="color:white">{current_values[idx]:.2f}</h2>
-                    </div>
-                """, unsafe_allow_html=True)
-            time.sleep(0.02)
-    else:
-        col1, col2, col3 = st.columns(3)
-        for idx, col in enumerate([col1, col2, col3]):
-            col.markdown(f"""
-                <div style="background-color:{colors[idx]}; padding:20px; border-radius:10px; text-align:center;">
-                <h4 style="color:white">{titles[idx]}</h4>
-                <h2 style="color:white">0</h2>
-                </div>
-            """, unsafe_allow_html=True)
-
-    # --- Filters Section ---
-    st.subheader("Filter Data")
-    filter_name = st.text_input("Filter by SME Name (leave blank for all)", key="filter_sme_name")
-    filter_month = st.selectbox(
-        "Filter by Month",
-        ["All"] + ["January","February","March","April","May","June",
-                   "July","August","September","October","November","December"],
-        key="filter_month"
-    )
-
-    df_filtered = df.copy()
-    if filter_name and "SME Name" in df_filtered.columns:
-        df_filtered = df_filtered[df_filtered["SME Name"].str.contains(filter_name, case=False)]
-    if filter_month != "All" and "Month" in df_filtered.columns:
-        df_filtered = df_filtered[df_filtered["Month"] == filter_month]
-
-    # --- Chart Section ---
-    st.subheader("Water Consumption Chart")
-    if not df_filtered.empty and "Water Consumption (KL)" in df_filtered.columns:
-        chart_data = df_filtered.groupby("SME Name")["Water Consumption (KL)"].sum()
-        st.bar_chart(chart_data)
-    else:
-        st.info("No data to display in chart.")
-
-    # --- Input Form Section ---
-    st.subheader("Enter Water Data")
-    with st.form("water_form"):
-        sme_name = st.text_input("SME Name", key="input_sme_name")
-        water_source = st.text_input("Water Source", key="input_water_source")
-        water_consumed = st.number_input("Water Consumed (KL)", min_value=0.0, step=0.1, key="input_consumed")
-        water_recycled = st.number_input("Water Recycled (KL)", min_value=0.0, step=0.1, key="input_recycled")
-        water_lost = st.number_input("Water Lost (KL)", min_value=0.0, step=0.1, key="input_lost")
-
-        data_type = st.selectbox("Data Type", ["Annual", "Monthly"], key="input_data_type")
-        month = ""
-        if data_type == "Monthly":
-            month = st.selectbox("Select Month", ["January","February","March","April","May","June",
-                                                 "July","August","September","October","November","December"], key="input_month")
-
-        submitted = st.form_submit_button("Submit")
+    st.subheader("Water - Detailed Input")
+    with st.form("water_form", clear_on_submit=False):
+        loc = st.text_input("Location / Site")
+        source = st.selectbox("Source", ["Municipal","Groundwater","Surface","Recycled"])
+        month = st.selectbox("Month", months)
+        qty = st.number_input("Quantity (m³)", min_value=0.0, value=0.0)
+        cost = st.number_input("Cost (INR)", min_value=0.0, value=0.0)
+        submitted = st.form_submit_button("Add Water Record")
         if submitted:
-            new_entry = {
-                "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "SME Name": sme_name,
-                "Water Source": water_source,
-                "Water Consumption (KL)": water_consumed,
-                "Water Recycled (KL)": water_recycled,
-                "Water Lost (KL)": water_lost,
-                "Data Type": data_type,
-                "Month": month
-            }
-            st.session_state['water_data'] = pd.concat([st.session_state['water_data'], pd.DataFrame([new_entry])], ignore_index=True)
-            st.success("Data submitted successfully!")
+            row = {"Location":loc,"Source":source,"Month":month,"Quantity_m3":qty,"Cost_INR":cost}
+            st.session_state.water_data = pd.concat([st.session_state.water_data, pd.DataFrame([row])], ignore_index=True)
+            st.success("Water record added.")
 
-    # --- Data Table Section ---
-    st.subheader("All Water Data Entries")
-    st.dataframe(st.session_state['water_data'])
+    st.markdown("#### Advanced Water (STP/Rainwater/Recycle)")
+    with st.form("adv_water", clear_on_submit=False):
+        loc2 = st.text_input("Location (advanced)")
+        month2 = st.selectbox("Month (advanced)", months, key="adv_w_month")
+        rain = st.number_input("Rainwater Harvested (m³)", min_value=0.0, value=0.0)
+        recycled = st.number_input("Water Recycled (m³)", min_value=0.0, value=0.0)
+        treatment = st.text_input("Treatment Before Discharge")
+        cap = st.number_input("STP/ETP Capacity (kL/day)", min_value=0.0, value=0.0)
+        sub2 = st.form_submit_button("Add Advanced Water Record")
+        if sub2:
+            row2 = {"Location":loc2,"Month":month2,"Rainwater_Harvested_m3":rain,"Water_Recycled_m3":recycled,"Treatment_Before_Discharge":treatment,"STP_ETP_Capacity_kL_day":cap}
+            st.session_state.advanced_water_data = pd.concat([st.session_state.advanced_water_data, pd.DataFrame([row2])], ignore_index=True)
+            st.success("Advanced water record added.")
 
-    # --- Download Section ---
-    st.subheader("Download Data")
-    csv = st.session_state['water_data'].to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="Download CSV",
-        data=csv,
-        file_name='water_data.csv',
-        mime='text/csv'
-    )
-
-# --- Call the function ---
-render_water_input_page()
-
-# ---------------------------
-# Waste Dashboard
-# ---------------------------
+# Waste page
 def render_waste_page():
     st.subheader("Waste - Input")
     with st.form("waste_form", clear_on_submit=False):

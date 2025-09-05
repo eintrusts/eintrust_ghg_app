@@ -1,8 +1,4 @@
-You said:
 
-# app.py
-# Complete rewritten app with full Scope-3 15 categories + emissions calc
-# (GHG and Energy pages are preserved exactly as provided)
 import streamlit as st
 import pandas as pd
 import numpy as np

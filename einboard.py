@@ -694,18 +694,18 @@ def render_sdg_dashboard():
 # Water Dashboard
 # ---------------------------
 
-def render_water_input_page():
-    import streamlit as st
-    import pandas as pd
-    from datetime import datetime
-    import time
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+import time
 
+def render_water_input_page():
     # --- Initialize session state ---
     columns = [
         "Timestamp", "SME Name", "Water Source", "Water Consumption (KL)",
         "Water Recycled (KL)", "Water Lost (KL)", "Data Type", "Month"
     ]
-
+    
     if 'water_data' not in st.session_state:
         st.session_state['water_data'] = pd.DataFrame(columns=columns)
     else:
@@ -758,11 +758,12 @@ def render_water_input_page():
 
     # --- Filters Section ---
     st.subheader("Filter Data")
-    filter_name = st.text_input("Filter by SME Name (leave blank for all)")
+    filter_name = st.text_input("Filter by SME Name (leave blank for all)", key="filter_sme_name")
     filter_month = st.selectbox(
         "Filter by Month",
         ["All"] + ["January","February","March","April","May","June",
-                   "July","August","September","October","November","December"]
+                   "July","August","September","October","November","December"],
+        key="filter_month"
     )
 
     df_filtered = df.copy()
@@ -782,17 +783,17 @@ def render_water_input_page():
     # --- Input Form Section ---
     st.subheader("Enter Water Data")
     with st.form("water_form"):
-        sme_name = st.text_input("SME Name")
-        water_source = st.text_input("Water Source")
-        water_consumed = st.number_input("Water Consumed (KL)", min_value=0.0, step=0.1)
-        water_recycled = st.number_input("Water Recycled (KL)", min_value=0.0, step=0.1)
-        water_lost = st.number_input("Water Lost (KL)", min_value=0.0, step=0.1)
+        sme_name = st.text_input("SME Name", key="input_sme_name")
+        water_source = st.text_input("Water Source", key="input_water_source")
+        water_consumed = st.number_input("Water Consumed (KL)", min_value=0.0, step=0.1, key="input_consumed")
+        water_recycled = st.number_input("Water Recycled (KL)", min_value=0.0, step=0.1, key="input_recycled")
+        water_lost = st.number_input("Water Lost (KL)", min_value=0.0, step=0.1, key="input_lost")
 
-        data_type = st.selectbox("Data Type", ["Annual", "Monthly"])
+        data_type = st.selectbox("Data Type", ["Annual", "Monthly"], key="input_data_type")
         month = ""
         if data_type == "Monthly":
             month = st.selectbox("Select Month", ["January","February","March","April","May","June",
-                                                 "July","August","September","October","November","December"])
+                                                 "July","August","September","October","November","December"], key="input_month")
 
         submitted = st.form_submit_button("Submit")
         if submitted:

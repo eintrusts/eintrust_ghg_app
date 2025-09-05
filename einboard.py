@@ -691,111 +691,124 @@ def render_sdg_dashboard():
             idx += 1
 
 # ---------------------------
-# Additional Pages (Environment / Social / Governance Inputs)
-# These pages add data to session_state dataframes and session_state keys
+# Water Dashboard
 # ---------------------------
 
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 from datetime import datetime
+import time
 
-# --- Initialize session state for water data ---
+# Initialize session state for water data
 if 'water_data' not in st.session_state:
     st.session_state['water_data'] = pd.DataFrame(columns=[
-        "SME Name", "Water Source", "Water Consumption (KL)", "Water Reuse (KL)", 
-        "Frequency", "Month", "Timestamp"
+        "Timestamp", "SME Name", "Water Source", "Water Consumption (KL)",
+        "Water Recycled (KL)", "Water Lost (KL)", "Data Type", "Month"
     ])
 
-# --- PAGE TITLE ---
+# --- KPIs Section ---
 st.title("Water Management Dashboard")
+st.subheader("Key Performance Indicators (KPIs)")
 
-# =========================
-# 1️⃣ KPIs
-# =========================
-st.subheader("Key Performance Indicators")
+df = st.session_state['water_data']
 
-total_entries = len(st.session_state['water_data'])
-total_consumption = st.session_state['water_data']["Water Consumption (KL)"].sum()
-total_reuse = st.session_state['water_data']["Water Reuse (KL)"].sum()
+# Define KPI values
+total_consumed = df['Water Consumption (KL)'].sum()
+total_recycled = df['Water Recycled (KL)'].sum()
+total_lost = df['Water Lost (KL)'].sum()
 
-kpi1, kpi2, kpi3 = st.columns(3)
-kpi1.metric("Total Entries", total_entries)
-kpi2.metric("Total Water Consumption (KL)", total_consumption)
-kpi3.metric("Total Water Reuse (KL)", total_reuse)
+# Define color palette
+colors = ["#4CAF50", "#2196F3", "#FF9800"]  # Green, Blue, Orange
 
-# =========================
-# 2️⃣ Filter
-# =========================
+col1, col2, col3 = st.columns(3)
+
+# Create containers for KPIs
+kpi_containers = [col1.empty(), col2.empty(), col3.empty()]
+titles = ["Total Water Consumed (KL)", "Total Water Recycled (KL)", "Total Water Lost (KL)"]
+targets = [total_consumed, total_recycled, total_lost]
+
+# Animate all KPIs simultaneously
+steps = 50
+current_values = [0, 0, 0]
+for i in range(steps):
+    for idx in range(3):
+        current_values[idx] += targets[idx]/steps
+        if current_values[idx] > targets[idx]:
+            current_values[idx] = targets[idx]
+        kpi_containers[idx].markdown(f"""
+            <div style="background-color:{colors[idx]}; padding:20px; border-radius:10px; text-align:center;">
+            <h4 style="color:white">{titles[idx]}</h4>
+            <h2 style="color:white">{current_values[idx]:.2f}</h2>
+            </div>
+        """, unsafe_allow_html=True)
+    time.sleep(0.02)
+
+# --- Filters Section ---
 st.subheader("Filter Data")
-with st.expander("Filter Options"):
-    filter_sme = st.text_input("Filter by SME Name")
-    filter_month = st.selectbox("Filter by Month", ["All"] + list(range(1, 13)))
+filter_name = st.text_input("Filter by SME Name (leave blank for all)")
+filter_month = st.selectbox(
+    "Filter by Month",
+    ["All"] + ["January","February","March","April","May","June",
+               "July","August","September","October","November","December"]
+)
 
-# Apply filters
-df_filtered = st.session_state['water_data'].copy()
-if filter_sme:
-    df_filtered = df_filtered[df_filtered["SME Name"].str.contains(filter_sme, case=False)]
+df_filtered = df.copy()
+if filter_name:
+    df_filtered = df_filtered[df_filtered["SME Name"].str.contains(filter_name, case=False)]
 if filter_month != "All":
     df_filtered = df_filtered[df_filtered["Month"] == filter_month]
 
-# =========================
-# 3️⃣ Chart
-# =========================
+# --- Chart Section ---
 st.subheader("Water Consumption Chart")
 if not df_filtered.empty:
-    fig, ax = plt.subplots()
-    ax.bar(df_filtered["SME Name"], df_filtered["Water Consumption (KL)"], color="#1f77b4")
-    ax.set_ylabel("Water Consumption (KL)")
-    ax.set_xlabel("SME Name")
-    ax.set_xticklabels(df_filtered["SME Name"], rotation=45, ha="right")
-    st.pyplot(fig)
+    chart_data = df_filtered.groupby("SME Name")["Water Consumption (KL)"].sum()
+    st.bar_chart(chart_data)
 else:
-    st.info("No data to display in chart")
+    st.info("No data to display in chart.")
 
-# =========================
-# 4️⃣ Input Form
-# =========================
-st.subheader("Add Water Data")
-with st.form("water_input_form"):
-    SME_name = st.text_input("SME Name")
-    water_source = st.selectbox("Water Source", ["Groundwater", "Municipal", "Recycled", "Other"])
-    water_consumption = st.number_input("Water Consumption (KL)", min_value=0.0, step=0.1)
-    water_reuse = st.number_input("Water Reuse (KL)", min_value=0.0, step=0.1)
+# --- Input Form Section ---
+st.subheader("Enter Water Data")
+with st.form("water_form"):
+    sme_name = st.text_input("SME Name")
+    water_source = st.text_input("Water Source")
+    water_consumed = st.number_input("Water Consumed (KL)", min_value=0.0, step=0.1)
+    water_recycled = st.number_input("Water Recycled (KL)", min_value=0.0, step=0.1)
+    water_lost = st.number_input("Water Lost (KL)", min_value=0.0, step=0.1)
     
-    frequency = st.radio("Data Frequency", ["Annual", "Monthly"])
-    month = None
-    if frequency == "Monthly":
-        month = st.selectbox("Select Month", list(range(1, 13)))
+    data_type = st.selectbox("Data Type", ["Annual", "Monthly"])
+    month = ""
+    if data_type == "Monthly":
+        month = st.selectbox("Select Month", ["January","February","March","April","May","June",
+                                             "July","August","September","October","November","December"])
     
     submitted = st.form_submit_button("Submit")
     if submitted:
         new_entry = {
-            "SME Name": SME_name,
+            "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "SME Name": sme_name,
             "Water Source": water_source,
-            "Water Consumption (KL)": water_consumption,
-            "Water Reuse (KL)": water_reuse,
-            "Frequency": frequency,
-            "Month": month,
-            "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "Water Consumption (KL)": water_consumed,
+            "Water Recycled (KL)": water_recycled,
+            "Water Lost (KL)": water_lost,
+            "Data Type": data_type,
+            "Month": month
         }
         st.session_state['water_data'] = pd.concat([st.session_state['water_data'], pd.DataFrame([new_entry])], ignore_index=True)
-        st.success("Data added successfully!")
+        st.success("Data submitted successfully!")
 
-# =========================
-# 5️⃣ Data Table & Download
-# =========================
+# --- Data Table Section ---
 st.subheader("All Water Data Entries")
 st.dataframe(st.session_state['water_data'])
 
+# --- Download Section ---
+st.subheader("Download Data")
 csv = st.session_state['water_data'].to_csv(index=False).encode('utf-8')
 st.download_button(
-    label="Download all entries as CSV",
+    label="Download CSV",
     data=csv,
     file_name='water_data.csv',
     mime='text/csv'
 )
-
 
 
 # Waste page

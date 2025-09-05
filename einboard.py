@@ -697,167 +697,105 @@ def render_sdg_dashboard():
 
 import streamlit as st
 import pandas as pd
-import plotly.express as px
+import matplotlib.pyplot as plt
 from datetime import datetime
 
-st.set_page_config(page_title="Water Dashboard", layout="wide")
-
-st.title("💧 Water Consumption Dashboard")
-
-# ----- SESSION STATE INITIALIZATION -----
+# --- Initialize session state for water data ---
 if 'water_data' not in st.session_state:
-    st.session_state['water_data'] = []
+    st.session_state['water_data'] = pd.DataFrame(columns=[
+        "SME Name", "Water Source", "Water Consumption (KL)", "Water Reuse (KL)", 
+        "Frequency", "Month", "Timestamp"
+    ])
 
-# ----- FILTER SELECTION -----
-st.subheader("Filter Water Data")
-filter_option = st.selectbox("Select Data to Display:", ["All Entries", "Annual Only", "Monthly Only"])
+# --- PAGE TITLE ---
+st.title("Water Management Dashboard")
 
-# Prepare filtered dataframe
-if len(st.session_state['water_data']) > 0:
-    df_all = pd.DataFrame(st.session_state['water_data'])
-    if filter_option == "Annual Only":
-        df_plot = df_all[df_all['frequency'] == "Annual"]
-    elif filter_option == "Monthly Only":
-        df_plot = df_all[df_all['frequency'] == "Monthly"]
-    else:
-        df_plot = df_all.copy()
+# =========================
+# 1️⃣ KPIs
+# =========================
+st.subheader("Key Performance Indicators")
+
+total_entries = len(st.session_state['water_data'])
+total_consumption = st.session_state['water_data']["Water Consumption (KL)"].sum()
+total_reuse = st.session_state['water_data']["Water Reuse (KL)"].sum()
+
+kpi1, kpi2, kpi3 = st.columns(3)
+kpi1.metric("Total Entries", total_entries)
+kpi2.metric("Total Water Consumption (KL)", total_consumption)
+kpi3.metric("Total Water Reuse (KL)", total_reuse)
+
+# =========================
+# 2️⃣ Filter
+# =========================
+st.subheader("Filter Data")
+with st.expander("Filter Options"):
+    filter_sme = st.text_input("Filter by SME Name")
+    filter_month = st.selectbox("Filter by Month", ["All"] + list(range(1, 13)))
+
+# Apply filters
+df_filtered = st.session_state['water_data'].copy()
+if filter_sme:
+    df_filtered = df_filtered[df_filtered["SME Name"].str.contains(filter_sme, case=False)]
+if filter_month != "All":
+    df_filtered = df_filtered[df_filtered["Month"] == filter_month]
+
+# =========================
+# 3️⃣ Chart
+# =========================
+st.subheader("Water Consumption Chart")
+if not df_filtered.empty:
+    fig, ax = plt.subplots()
+    ax.bar(df_filtered["SME Name"], df_filtered["Water Consumption (KL)"], color="#1f77b4")
+    ax.set_ylabel("Water Consumption (KL)")
+    ax.set_xlabel("SME Name")
+    ax.set_xticklabels(df_filtered["SME Name"], rotation=45, ha="right")
+    st.pyplot(fig)
 else:
-    df_all = pd.DataFrame()
-    df_plot = pd.DataFrame()
+    st.info("No data to display in chart")
 
-# ----- KPI BLOCKS -----
-st.subheader("Key Performance Indicators (KPIs)")
-
-def kpi_card(title, value, color, tooltip):
-    st.markdown(
-        f"""
-        <div style="
-            background-color:{color};
-            padding:20px;
-            border-radius:10px;
-            text-align:center;
-            color:white;
-            font-size:22px;
-            font-weight:bold;
-            box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
-            margin-bottom:10px;
-            " title="{tooltip}">
-            {title}<br><span style='font-size:28px'>{value}</span>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-if not df_plot.empty:
-    total_water = df_plot['water_consumption'].sum()
-    avg_water = df_plot['water_consumption'].mean()
-    max_water = df_plot['water_consumption'].max()
-    
-    # Count entries
-    total_entries = len(df_plot)
-    annual_entries = len(df_plot[df_plot['frequency']=='Annual'])
-    monthly_entries = len(df_plot[df_plot['frequency']=='Monthly'])
-else:
-    total_water = 0
-    avg_water = 0
-    max_water = 0
-    total_entries = 0
-    annual_entries = 0
-    monthly_entries = 0
-
-# Highlight peak if unusually high (>1.5× avg)
-peak_color = "#d62728" if max_water > 1.5*avg_water and avg_water>0 else "#2ca02c"
-
-kpi_cols = st.columns(3)
-with kpi_cols[0]:
-    kpi_card("Total Water (m³)", f"{total_water:.2f}", "#1f77b4", f"Total {total_entries} entries")
-with kpi_cols[1]:
-    kpi_card("Average Consumption (m³)", f"{avg_water:.2f}", "#ff7f0e", f"Annual: {annual_entries}, Monthly: {monthly_entries}")
-with kpi_cols[2]:
-    kpi_card("Peak Consumption (m³)", f"{max_water:.2f}", peak_color, "Peak value of all entries")
-
-st.markdown("---")
-
-# ----- CHART -----
-st.subheader("Water Consumption Trend")
-if not df_plot.empty:
-    df_plot['label'] = df_plot.apply(
-        lambda x: x['timestamp'] if x['frequency']=='Annual' else f"{x['month']} ({x['timestamp'][:10]})",
-        axis=1
-    )
-    
-    fig = px.line(
-        df_plot,
-        x='label',
-        y='water_consumption',
-        markers=True,
-        title="Water Consumption Over Time",
-        labels={"label":"Entry (Date / Month)", "water_consumption":"Water Consumption (m³)"}
-    )
-    
-    # Highlight peaks in chart
-    peak_index = df_plot['water_consumption'].idxmax() if not df_plot.empty else None
-    fig.update_traces(line=dict(color="#00BFFF", width=3), marker=dict(size=8))
-    if peak_index is not None:
-        fig.add_scatter(
-            x=[df_plot.loc[peak_index, 'label']],
-            y=[df_plot.loc[peak_index, 'water_consumption']],
-            mode='markers+text',
-            marker=dict(color='red', size=12),
-            text=["Peak!"],
-            textposition="top center",
-            showlegend=False
-        )
-    fig.update_layout(xaxis_tickangle=-45, template="plotly_white")
-    st.plotly_chart(fig, use_container_width=True)
-else:
-    st.info("No data available for this selection.")
-
-st.markdown("---")
-
-# ----- DATA INPUT FORM -----
-st.subheader("Add Water Data Entry")
+# =========================
+# 4️⃣ Input Form
+# =========================
+st.subheader("Add Water Data")
 with st.form("water_input_form"):
-    frequency = st.selectbox("Select Frequency", ["Annual", "Monthly"])
+    SME_name = st.text_input("SME Name")
+    water_source = st.selectbox("Water Source", ["Groundwater", "Municipal", "Recycled", "Other"])
+    water_consumption = st.number_input("Water Consumption (KL)", min_value=0.0, step=0.1)
+    water_reuse = st.number_input("Water Reuse (KL)", min_value=0.0, step=0.1)
     
+    frequency = st.radio("Data Frequency", ["Annual", "Monthly"])
     month = None
     if frequency == "Monthly":
-        month = st.selectbox("Select Month", [
-            "January", "February", "March", "April", "May", "June",
-            "July", "August", "September", "October", "November", "December"
-        ])
+        month = st.selectbox("Select Month", list(range(1, 13)))
     
-    water_consumption = st.number_input("Enter Water Consumption (m³)", min_value=0.0, step=0.1)
-    
-    submitted = st.form_submit_button("Submit Entry")
-    
+    submitted = st.form_submit_button("Submit")
     if submitted:
-        entry = {
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "frequency": frequency,
-            "month": month,
-            "water_consumption": water_consumption
+        new_entry = {
+            "SME Name": SME_name,
+            "Water Source": water_source,
+            "Water Consumption (KL)": water_consumption,
+            "Water Reuse (KL)": water_reuse,
+            "Frequency": frequency,
+            "Month": month,
+            "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
-        st.session_state['water_data'].append(entry)
-        st.success("Water data entry added successfully!")
-        st.experimental_rerun()  # Refresh to update KPIs and chart automatically
+        st.session_state['water_data'] = pd.concat([st.session_state['water_data'], pd.DataFrame([new_entry])], ignore_index=True)
+        st.success("Data added successfully!")
 
-st.markdown("---")
-
-# ----- DATA TABLE AND DOWNLOAD -----
+# =========================
+# 5️⃣ Data Table & Download
+# =========================
 st.subheader("All Water Data Entries")
-if not df_all.empty:
-    st.dataframe(df_all)
-    
-    csv = df_all.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="Download All Entries as CSV",
-        data=csv,
-        file_name='water_data_entries.csv',
-        mime='text/csv'
-    )
-else:
-    st.info("No entries yet. Please add data above.")
+st.dataframe(st.session_state['water_data'])
+
+csv = st.session_state['water_data'].to_csv(index=False).encode('utf-8')
+st.download_button(
+    label="Download all entries as CSV",
+    data=csv,
+    file_name='water_data.csv',
+    mime='text/csv'
+)
+
 
 
 # Waste page
